@@ -1,0 +1,198 @@
+// ── Prisma Schema — GymFlow ───────────────────────────────────────────────────
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Goal {
+  MUSCLE_GAIN
+  FAT_LOSS
+  ENDURANCE
+  GENERAL_FITNESS
+  STRENGTH
+}
+
+enum PlanType {
+  BASIC
+  PREMIUM
+  STUDENT
+  ANNUAL
+}
+
+enum SlotStatus {
+  AVAILABLE
+  BOOKED
+  CANCELLED
+}
+
+enum CrowdLevel {
+  LOW
+  MODERATE
+  HIGH
+}
+
+enum EquipmentStatus {
+  OPERATIONAL
+  MAINTENANCE
+  OUT_OF_SERVICE
+}
+
+// ── Models ───────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  password      String
+  role          Role      @default(USER)
+  plan          PlanType  @default(BASIC)
+  goal          Goal      @default(GENERAL_FITNESS)
+  height        Float?
+  weight        Float?
+  targetWeight  Float?
+  bodyFat       Float?
+  phone         String?
+  avatar        String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  workoutLogs   WorkoutLog[]
+  meals         Meal[]
+  slotBookings  SlotBooking[]
+  attendanceLogs AttendanceLog[]
+
+  @@map("users")
+}
+
+model WorkoutLog {
+  id          String     @id @default(uuid())
+  userId      String
+  name        String
+  date        DateTime   @default(now())
+  duration    Int        // minutes
+  calories    Int?
+  notes       String?
+  volume      Float?     // total kg lifted
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercises   ExerciseSet[]
+
+  @@map("workout_logs")
+}
+
+model ExerciseSet {
+  id           String     @id @default(uuid())
+  workoutLogId String
+  name         String
+  muscleGroup  String?
+  setNumber    Int
+  reps         Int
+  weight       Float      // kg
+  rpe          Int?       // Rate of Perceived Exertion 1-10
+  createdAt    DateTime   @default(now())
+
+  workoutLog   WorkoutLog @relation(fields: [workoutLogId], references: [id], onDelete: Cascade)
+
+  @@map("exercise_sets")
+}
+
+model Meal {
+  id         String     @id @default(uuid())
+  userId     String
+  name       String     // e.g. "Breakfast", "Lunch"
+  date       DateTime   @default(now())
+  calories   Int
+  protein    Float
+  carbs      Float
+  fat        Float
+  items      Json       // Array of food items
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("meals")
+}
+
+model SlotBooking {
+  id         String      @id @default(uuid())
+  userId     String
+  date       DateTime
+  startTime  String      // "06:00"
+  endTime    String      // "07:00"
+  status     SlotStatus  @default(BOOKED)
+  crowdPct   Int?        // Expected crowd % at booking time
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("slot_bookings")
+}
+
+model AttendanceLog {
+  id         String   @id @default(uuid())
+  userId     String
+  checkIn    DateTime @default(now())
+  checkOut   DateTime?
+  duration   Int?     // minutes, computed on checkout
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("attendance_logs")
+}
+
+model GymStats {
+  id           String     @id @default(uuid())
+  timestamp    DateTime   @default(now())
+  checkedIn    Int        @default(0)
+  capacity     Int        @default(200)
+  crowdLevel   CrowdLevel @default(LOW)
+  crowdPct     Int        @default(0)
+  zone         String?    // Optional zone name
+
+  @@map("gym_stats")
+}
+
+model Equipment {
+  id            String          @id @default(uuid())
+  name          String
+  type          String          // "Cardio", "Strength", "Functional"
+  status        EquipmentStatus @default(OPERATIONAL)
+  usageRate     Int             @default(0) // percentage
+  lastMaintDate DateTime?
+  nextMaintDate DateTime?
+  purchaseDate  DateTime?
+  notes         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@map("equipment")
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  title     String
+  message   String
+  type      String   // "alert" | "offer" | "update" | "maintenance"
+  audience  String   @default("All Members")
+  reach     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("announcements")
+}
