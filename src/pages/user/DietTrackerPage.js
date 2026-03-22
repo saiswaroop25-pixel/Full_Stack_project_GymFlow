@@ -1,269 +1,212 @@
-import React, { useState } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
-import { Plus, Search, Flame, Zap, UtensilsCrossed, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { dietAPI } from '../../api';
+import { Plus, Trash2, Flame, Loader } from 'lucide-react';
 
-const FOOD_DB = [
-  { name: 'Chicken Breast (100g)', cal: 165, protein: 31, carbs: 0, fat: 3.6 },
-  { name: 'Brown Rice (100g)', cal: 216, protein: 5, carbs: 45, fat: 1.8 },
-  { name: 'Whole Eggs (1 egg)', cal: 78, protein: 6, carbs: 0.6, fat: 5 },
-  { name: 'Banana (medium)', cal: 105, protein: 1.3, carbs: 27, fat: 0.4 },
-  { name: 'Oats (100g)', cal: 389, protein: 17, carbs: 66, fat: 7 },
-  { name: 'Whey Protein (1 scoop)', cal: 120, protein: 24, carbs: 3, fat: 2 },
-  { name: 'Almonds (30g)', cal: 174, protein: 6, carbs: 6, fat: 15 },
-  { name: 'Greek Yogurt (200g)', cal: 130, protein: 22, carbs: 6, fat: 0.7 },
-  { name: 'Sweet Potato (100g)', cal: 86, protein: 1.6, carbs: 20, fat: 0.1 },
-  { name: 'Salmon (100g)', cal: 208, protein: 20, carbs: 0, fat: 13 },
-  { name: 'Broccoli (100g)', cal: 34, protein: 2.8, carbs: 7, fat: 0.4 },
-  { name: 'Peanut Butter (2 tbsp)', cal: 188, protein: 8, carbs: 6, fat: 16 },
-];
-
-const MEALS = ['Breakfast', 'Lunch', 'Dinner', 'Pre-Workout', 'Post-Workout', 'Snacks'];
-
-const MACRO_COLORS = {
-  protein: 'var(--accent-blue)',
-  carbs: 'var(--accent-orange)',
-  fat: 'var(--accent-yellow)',
-};
-
-const GOALS = { cal: 2500, protein: 180, carbs: 250, fat: 70 };
-
-const weekCalData = [
-  { day: 'Mon', cal: 2380 }, { day: 'Tue', cal: 2520 },
-  { day: 'Wed', cal: 2100 }, { day: 'Thu', cal: 2680 },
-  { day: 'Fri', cal: 2400 }, { day: 'Sat', cal: 2890 }, { day: 'Sun', cal: 0 },
-];
+const MEAL_NAMES = ['Breakfast', 'Morning Snack', 'Lunch', 'Pre-Workout', 'Post-Workout', 'Dinner', 'Late Snack'];
 
 export default function DietTrackerPage() {
-  const [meals, setMeals] = useState({
-    Breakfast: [{ ...FOOD_DB[4], qty: 1.5 }, { ...FOOD_DB[2], qty: 3 }],
-    Lunch: [{ ...FOOD_DB[0], qty: 2 }, { ...FOOD_DB[1], qty: 1.5 }],
-    Dinner: [],
-    'Pre-Workout': [{ ...FOOD_DB[5], qty: 1 }, { ...FOOD_DB[3], qty: 1 }],
-    'Post-Workout': [],
-    Snacks: [{ ...FOOD_DB[6], qty: 1 }],
+  const [meals, setMeals]       = useState([]);
+  const [totals, setTotals]     = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 });
+  const [goals, setGoals]       = useState({ calories: 2500, protein: 200, carbs: 280, fat: 70 });
+  const [loading, setLoading]   = useState(true);
+  const [saving, setSaving]     = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [success, setSuccess]   = useState('');
+  const [error, setError]       = useState('');
+
+  const [form, setForm] = useState({
+    name: 'Breakfast', calories: '', protein: '', carbs: '', fat: '',
+    items: [{ name: '', cal: '' }],
   });
-  const [activeMeal, setActiveMeal] = useState(null);
-  const [search, setSearch] = useState('');
-  const [tab, setTab] = useState('today');
 
-  const totals = Object.values(meals).flat().reduce((acc, item) => ({
-    cal: acc.cal + item.cal * item.qty,
-    protein: acc.protein + item.protein * item.qty,
-    carbs: acc.carbs + item.carbs * item.qty,
-    fat: acc.fat + item.fat * item.qty,
-  }), { cal: 0, protein: 0, carbs: 0, fat: 0 });
+  useEffect(() => { loadData(); }, []);
 
-  const addFood = (food, meal) => {
-    setMeals(m => ({ ...m, [meal]: [...m[meal], { ...food, qty: 1 }] }));
-    setActiveMeal(null);
-    setSearch('');
+  const loadData = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const [mealsRes, goalsRes] = await Promise.all([
+        dietAPI.getMeals({ date: today }),
+        dietAPI.getMacroGoals(),
+      ]);
+      setMeals(mealsRes.data.data || []);
+      setTotals(mealsRes.data.totals || { calories: 0, protein: 0, carbs: 0, fat: 0 });
+      setGoals(goalsRes.data.data || goals);
+    } catch (err) {
+      setError('Failed to load meals.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const removeFood = (meal, idx) => {
-    setMeals(m => ({ ...m, [meal]: m[meal].filter((_, i) => i !== idx) }));
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      await dietAPI.createMeal({
+        name:     form.name,
+        calories: parseInt(form.calories),
+        protein:  parseFloat(form.protein),
+        carbs:    parseFloat(form.carbs),
+        fat:      parseFloat(form.fat),
+        items:    form.items.filter(i => i.name),
+      });
+      setSuccess('Meal logged!');
+      setShowForm(false);
+      setForm({ name: 'Breakfast', calories: '', protein: '', carbs: '', fat: '', items: [{ name: '', cal: '' }] });
+      loadData();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to log meal.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const pieData = [
-    { name: 'Protein', value: Math.round(totals.protein * 4), color: MACRO_COLORS.protein },
-    { name: 'Carbs', value: Math.round(totals.carbs * 4), color: MACRO_COLORS.carbs },
-    { name: 'Fat', value: Math.round(totals.fat * 9), color: MACRO_COLORS.fat },
-  ];
+  const deleteMeal = async (id) => {
+    try {
+      await dietAPI.deleteMeal(id);
+      loadData();
+    } catch {
+      setError('Failed to delete meal.');
+    }
+  };
 
-  const filtered = FOOD_DB.filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
+  const macroBar = (val, goal, color) => (
+    <div style={{ height: 8, background: 'var(--bg-elevated)', borderRadius: 4, overflow: 'hidden', marginTop: 6 }}>
+      <div style={{ width: `${Math.min(100, (val / goal) * 100)}%`, height: '100%', background: color, borderRadius: 4, transition: 'width 0.6s ease' }} />
+    </div>
+  );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'fade-up 0.5s ease' }}>
-      <div className="flex-between">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h1 className="page-title">DIET <span style={{ color: 'var(--accent-orange)' }}>TRACKER</span></h1>
-          <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 4 }}>Fuel your performance.</p>
+          <h1 className="page-title">DIET TRACKER</h1>
+          <p className="page-subtitle">Today's nutrition · {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={() => setActiveMeal('Breakfast')}>
-          <Plus size={16} /> Log Meal
+        <button className="btn btn-primary" onClick={() => setShowForm(v => !v)}>
+          <Plus size={16} /> {showForm ? 'Cancel' : 'Log Meal'}
         </button>
       </div>
 
-      {/* Macro overview */}
-      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24 }}>
-        {/* Calorie ring */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-          <div style={{ position: 'relative', width: 180, height: 180 }}>
-            <svg viewBox="0 0 180 180" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
-              <circle cx="90" cy="90" r="70" fill="none" stroke="var(--bg-elevated)" strokeWidth="12" />
-              <circle cx="90" cy="90" r="70" fill="none" stroke="var(--accent-orange)" strokeWidth="12"
-                strokeLinecap="round"
-                strokeDasharray={`${2 * Math.PI * 70}`}
-                strokeDashoffset={`${2 * Math.PI * 70 * (1 - Math.min(totals.cal / GOALS.cal, 1))}`}
-                style={{ transition: 'stroke-dashoffset 0.8s ease', filter: 'drop-shadow(0 0 8px rgba(255,107,53,0.5))' }}
-              />
-            </svg>
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 40, color: 'var(--accent-orange)', lineHeight: 1 }}>{Math.round(totals.cal)}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>of {GOALS.cal} kcal</div>
-            </div>
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 8 }}>
-            <span style={{ color: 'var(--accent-green)', fontWeight: 700 }}>{GOALS.cal - Math.round(totals.cal)}</span> kcal remaining
-          </div>
-        </div>
+      {error   && <div style={{ padding: '12px 16px', background: 'rgba(255,59,59,0.1)', border: '1px solid rgba(255,59,59,0.3)', borderRadius: 8, color: '#ff3b3b', fontSize: 14 }}>{error}</div>}
+      {success && <div style={{ padding: '12px 16px', background: 'rgba(0,255,135,0.1)', border: '1px solid rgba(0,255,135,0.3)', borderRadius: 8, color: '#00ff87', fontSize: 14 }}>{success}</div>}
 
-        {/* Macros */}
-        <div className="card">
-          <div className="section-title" style={{ marginBottom: 20 }}>Macro Breakdown</div>
-          <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
-            <ResponsiveContainer width={120} height={120}>
-              <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" innerRadius={35} outerRadius={55} dataKey="value" paddingAngle={3}>
-                  {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {[
-                { label: 'Protein', val: totals.protein, goal: GOALS.protein, color: MACRO_COLORS.protein, unit: 'g' },
-                { label: 'Carbs', val: totals.carbs, goal: GOALS.carbs, color: MACRO_COLORS.carbs, unit: 'g' },
-                { label: 'Fat', val: totals.fat, goal: GOALS.fat, color: MACRO_COLORS.fat, unit: 'g' },
-              ].map(({ label, val, goal, color, unit }) => (
-                <div key={label}>
-                  <div className="flex-between" style={{ marginBottom: 6 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 10, height: 10, borderRadius: 2, background: color }} />
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>{label}</span>
-                    </div>
-                    <span style={{ fontSize: 13, fontFamily: 'var(--font-mono)', color }}>{Math.round(val)}{unit} <span style={{ color: 'var(--text-muted)' }}>/ {goal}{unit}</span></span>
-                  </div>
-                  <div style={{ height: 6, background: 'var(--bg-elevated)', borderRadius: 100 }}>
-                    <div style={{ width: `${Math.min(100, (val / goal) * 100)}%`, height: '100%', background: color, borderRadius: 100, transition: 'width 0.5s', boxShadow: `0 0 8px ${color}50` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
+      {/* Macro summary */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+        {[
+          { label: 'Calories', val: Math.round(totals.calories), goal: goals.calories, unit: 'kcal', color: '#ff6b35' },
+          { label: 'Protein',  val: Math.round(totals.protein),  goal: goals.protein,  unit: 'g',    color: '#00ff87' },
+          { label: 'Carbs',    val: Math.round(totals.carbs),    goal: goals.carbs,    unit: 'g',    color: '#ffd166' },
+          { label: 'Fat',      val: Math.round(totals.fat),      goal: goals.fat,      unit: 'g',    color: '#a78bfa' },
+        ].map(({ label, val, goal, unit, color }) => (
+          <div key={label} className="card" style={{ padding: 18 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 4 }}>{label.toUpperCase()}</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, color }}>{val}<span style={{ fontSize: 14, marginLeft: 4 }}>{unit}</span></div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>/ {goal}{unit} goal</div>
+            {macroBar(val, goal, color)}
           </div>
-        </div>
+        ))}
       </div>
 
-      <div className="tabs">
-        <button className={`tab ${tab === 'today' ? 'active' : ''}`} onClick={() => setTab('today')}>Today's Log</button>
-        <button className={`tab ${tab === 'week' ? 'active' : ''}`} onClick={() => setTab('week')}>Weekly</button>
-        <button className={`tab ${tab === 'ai' ? 'active' : ''}`} onClick={() => setTab('ai')}>AI Suggestions</button>
-      </div>
-
-      {tab === 'today' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {MEALS.map(meal => (
-            <div key={meal} className="card" style={{ padding: 20 }}>
-              <div className="flex-between" style={{ marginBottom: meals[meal].length ? 16 : 0 }}>
-                <div style={{ display: 'flex', align: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 15, fontWeight: 800 }}>{meal}</span>
-                  {meals[meal].length > 0 && (
-                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', alignSelf: 'center', marginLeft: 8 }}>
-                      {Math.round(meals[meal].reduce((a, f) => a + f.cal * f.qty, 0))} kcal
-                    </span>
-                  )}
-                </div>
-                <button className="btn btn-ghost btn-sm" onClick={() => setActiveMeal(activeMeal === meal ? null : meal)}>
-                  <Plus size={14} /> Add Food
-                </button>
+      {/* Log Meal Form */}
+      {showForm && (
+        <div className="card" style={{ padding: 28 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, marginBottom: 20 }}>LOG MEAL</div>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: 12 }}>
+              <div>
+                <label className="form-label">Meal</label>
+                <select value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}>
+                  {MEAL_NAMES.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
               </div>
+              <div>
+                <label className="form-label">Calories</label>
+                <input type="number" value={form.calories} onChange={e => setForm(f => ({ ...f, calories: e.target.value }))} placeholder="500" required />
+              </div>
+              <div>
+                <label className="form-label">Protein (g)</label>
+                <input type="number" value={form.protein} onChange={e => setForm(f => ({ ...f, protein: e.target.value }))} placeholder="40" required />
+              </div>
+              <div>
+                <label className="form-label">Carbs (g)</label>
+                <input type="number" value={form.carbs} onChange={e => setForm(f => ({ ...f, carbs: e.target.value }))} placeholder="60" required />
+              </div>
+              <div>
+                <label className="form-label">Fat (g)</label>
+                <input type="number" value={form.fat} onChange={e => setForm(f => ({ ...f, fat: e.target.value }))} placeholder="15" required />
+              </div>
+            </div>
 
-              {meals[meal].map((food, idx) => (
-                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: idx < meals[meal].length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{food.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                      P: {Math.round(food.protein * food.qty)}g · C: {Math.round(food.carbs * food.qty)}g · F: {Math.round(food.fat * food.qty)}g
-                    </div>
-                  </div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: 'var(--accent-orange)' }}>
-                    {Math.round(food.cal * food.qty)} kcal
-                  </div>
-                  <button onClick={() => removeFood(meal, idx)}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}>
-                    <X size={14} />
-                  </button>
+            {/* Food items */}
+            <div>
+              <label className="form-label">Food Items (optional)</label>
+              {form.items.map((item, i) => (
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: 8, marginBottom: 6 }}>
+                  <input value={item.name} onChange={e => { const items = [...form.items]; items[i].name = e.target.value; setForm(f => ({ ...f, items })); }} placeholder="e.g. Chicken Breast 200g" />
+                  <input type="number" value={item.cal} onChange={e => { const items = [...form.items]; items[i].cal = e.target.value; setForm(f => ({ ...f, items })); }} placeholder="kcal" />
+                  <button type="button" onClick={() => setForm(f => ({ ...f, items: f.items.filter((_, idx) => idx !== i) }))} style={{ background: 'rgba(255,59,59,0.1)', border: '1px solid rgba(255,59,59,0.2)', borderRadius: 6, padding: '0 10px', cursor: 'pointer', color: '#ff3b3b' }}>✕</button>
                 </div>
               ))}
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setForm(f => ({ ...f, items: [...f.items, { name: '', cal: '' }] }))}>
+                <Plus size={12} /> Add Item
+              </button>
+            </div>
 
-              {meals[meal].length === 0 && activeMeal !== meal && (
-                <div style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>No food logged yet</div>
-              )}
+            <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-start' }} disabled={saving}>
+              {saving ? <><Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Saving...</> : <><Flame size={16} /> Log Meal</>}
+            </button>
+          </form>
+        </div>
+      )}
 
-              {activeMeal === meal && (
-                <div style={{ marginTop: 16, padding: 16, background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-                  <div style={{ position: 'relative', marginBottom: 12 }}>
-                    <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                    <input className="input" placeholder="Search food..." value={search}
-                      onChange={e => setSearch(e.target.value)}
-                      style={{ paddingLeft: 36, fontSize: 13 }} />
+      {/* Meals list */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 20 }}>TODAY'S MEALS</div>
+
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>Loading meals...</div>
+        ) : meals.length === 0 ? (
+          <div className="card" style={{ textAlign: 'center', padding: 40 }}>
+            <Flame size={40} color="var(--text-muted)" style={{ margin: '0 auto 16px' }} />
+            <div style={{ color: 'var(--text-secondary)' }}>No meals logged today. Click "Log Meal" to start tracking!</div>
+          </div>
+        ) : (
+          meals.map(meal => (
+            <div key={meal.id} className="card" style={{ padding: 18 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>{meal.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                    {new Date(meal.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
-                    {filtered.map(food => (
-                      <button key={food.name} onClick={() => addFood(food, meal)}
-                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', textAlign: 'left' }}
-                        onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-orange)'}
-                        onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{food.name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>P:{food.protein}g C:{food.carbs}g F:{food.fat}g</div>
-                        </div>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-orange)', fontFamily: 'var(--font-mono)' }}>{food.cal} kcal</span>
-                      </button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <div style={{ display: 'flex', gap: 16 }}>
+                    {[
+                      { label: 'Cal',     val: meal.calories, color: '#ff6b35' },
+                      { label: 'Protein', val: `${Math.round(meal.protein)}g`, color: '#00ff87' },
+                      { label: 'Carbs',   val: `${Math.round(meal.carbs)}g`,   color: '#ffd166' },
+                      { label: 'Fat',     val: `${Math.round(meal.fat)}g`,     color: '#a78bfa' },
+                    ].map(({ label, val, color }) => (
+                      <div key={label} style={{ textAlign: 'center' }}>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 15, color, fontWeight: 700 }}>{val}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{label}</div>
+                      </div>
                     ))}
                   </div>
+                  <button onClick={() => deleteMeal(meal.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                    <Trash2 size={15} />
+                  </button>
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tab === 'week' && (
-        <div className="card">
-          <div className="section-title" style={{ marginBottom: 20 }}>Weekly Calorie Intake</div>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={weekCalData} margin={{ top: 5, right: 10, bottom: 0, left: -10 }}>
-              <XAxis dataKey="day" tick={{ fontSize: 12, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
-              <Tooltip formatter={(val) => [`${val} kcal`, 'Calories']} contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} />
-              <Bar dataKey="cal" radius={[6, 6, 0, 0]}>
-                {weekCalData.map((entry, i) => <Cell key={i} fill={entry.cal > GOALS.cal ? 'var(--accent-red)' : 'var(--accent-orange)'} opacity={0.8} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-secondary)' }}>
-              <div style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--accent-orange)' }} /> Under Goal
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-secondary)' }}>
-              <div style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--accent-red)' }} /> Over Goal
-            </div>
-          </div>
-        </div>
-      )}
-
-      {tab === 'ai' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {[
-            { title: 'High-Protein Breakfast', desc: 'Greek yogurt parfait with berries, granola + 3 egg whites. ~420 kcal, 40g protein.', macro: '40P · 45C · 12F', color: 'var(--accent-blue)', tag: 'Breakfast' },
-            { title: 'Pre-Workout Power Bowl', desc: 'Oats + banana + whey protein + almond butter. Perfect 60-90 min before training.', macro: '32P · 68C · 14F', color: 'var(--accent-orange)', tag: 'Pre-Workout' },
-            { title: 'Post-Workout Recovery', desc: 'Chicken breast + white rice + broccoli. Fast-absorbing carbs + protein for muscle repair.', macro: '45P · 60C · 8F', color: 'var(--accent-green)', tag: 'Post-Workout' },
-            { title: 'Light Evening Meal', desc: 'Salmon + sweet potato + mixed greens. Omega-3s for recovery, complex carbs for tomorrow.', macro: '38P · 40C · 18F', color: 'var(--accent-purple)', tag: 'Dinner' },
-          ].map(s => (
-            <div key={s.title} className="card" style={{ display: 'flex', gap: 16 }}>
-              <div style={{ width: 4, borderRadius: 100, background: s.color, flexShrink: 0 }} />
-              <div style={{ flex: 1 }}>
-                <div className="flex-between" style={{ marginBottom: 8 }}>
-                  <div style={{ fontSize: 15, fontWeight: 800 }}>{s.title}</div>
-                  <span className="badge badge-green">{s.tag}</span>
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 10 }}>{s.desc}</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: s.color }}>{s.macro} kcal</div>
               </div>
-              <button className="btn btn-ghost btn-sm" style={{ flexShrink: 0, alignSelf: 'center' }}>Add to Log</button>
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </div>
   );
 }
