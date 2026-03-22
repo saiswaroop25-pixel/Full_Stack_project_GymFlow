@@ -1,98 +1,126 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Zap, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Zap, Eye, EyeOff, AlertCircle, Loader } from 'lucide-react';
+import { useApp } from '../../context/AppContext';
 
 export default function LoginPage() {
-  const navigate = useNavigate();
-  const [showPw, setShowPw] = useState(false);
-  const [role, setRole] = useState('user');
-  const [form, setForm] = useState({ email: '', password: '' });
+  const navigate  = useNavigate();
+  const { login } = useApp();
 
-  const handleSubmit = (e) => {
+  const [form, setForm]       = useState({ email: '', password: '' });
+  const [showPw, setShowPw]   = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState('');
+
+  const handleChange = (e) =>
+    setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    navigate(role === 'admin' ? '/admin/dashboard' : '/app/dashboard');
+    setError('');
+    setLoading(true);
+    try {
+      const user = await login(form.email, form.password);
+      // Redirect based on role
+      navigate(user.role === 'ADMIN' ? '/admin/dashboard' : '/app/dashboard');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fillDemo = (role) => {
+    if (role === 'user')  setForm({ email: 'arjun@example.com',  password: 'user123' });
+    if (role === 'admin') setForm({ email: 'admin@gymflow.com', password: 'admin123' });
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      {/* Background */}
-      <div style={{ position: 'fixed', inset: 0, background: 'radial-gradient(ellipse at 30% 50%, rgba(0,255,135,0.05), transparent 60%), radial-gradient(ellipse at 70% 50%, rgba(59,130,246,0.05), transparent 60%)' }} />
+    <div style={{ minHeight: '100vh', background: 'var(--bg-void)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ width: '100%', maxWidth: 420 }}>
 
-      <div style={{ width: '100%', maxWidth: 420, position: 'relative', animation: 'fade-up 0.5s ease' }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-            <div style={{ width: 40, height: 40, background: 'var(--accent-green)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 40, height: 40, background: 'var(--accent-lime)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Zap size={20} fill="#000" color="#000" />
             </div>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: 26, letterSpacing: '0.1em' }}>
-              GYM<span style={{ color: 'var(--accent-green)' }}>FLOW</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: 26, letterSpacing: '0.08em' }}>
+              GYM<span style={{ color: 'var(--accent-lime)' }}>FLOW</span>
             </span>
           </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Welcome back. Let's get moving.</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Sign in to your account</p>
         </div>
 
+        {/* Card */}
         <div className="card" style={{ padding: 32 }}>
-          {/* Role toggle */}
-          <div className="tabs" style={{ marginBottom: 28 }}>
-            <button className={`tab ${role === 'user' ? 'active' : ''}`} onClick={() => setRole('user')}>Member</button>
-            <button className={`tab ${role === 'admin' ? 'active' : ''}`} onClick={() => setRole('admin')}>Gym Admin</button>
-          </div>
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div className="input-group">
-              <label className="input-label">Email Address</label>
-              <div style={{ position: 'relative' }}>
-                <Mail size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input className="input" type="email" placeholder="you@example.com"
-                  style={{ paddingLeft: 40 }}
-                  value={form.email}
-                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-              </div>
+          {/* Error */}
+          {error && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: 'rgba(255,59,59,0.1)', border: '1px solid rgba(255,59,59,0.3)', borderRadius: 8, marginBottom: 20, fontSize: 14, color: 'var(--accent-red)' }}>
+              <AlertCircle size={16} /> {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Email */}
+            <div>
+              <label className="form-label">Email</label>
+              <input
+                type="email"
+                name="email"
+                value={form.email}
+                onChange={handleChange}
+                placeholder="you@example.com"
+                required
+                autoFocus
+              />
             </div>
 
-            <div className="input-group">
-              <label className="input-label">Password</label>
+            {/* Password */}
+            <div>
+              <label className="form-label">Password</label>
               <div style={{ position: 'relative' }}>
-                <Lock size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input className="input" type={showPw ? 'text' : 'password'} placeholder="••••••••"
-                  style={{ paddingLeft: 40, paddingRight: 40 }}
+                <input
+                  type={showPw ? 'text' : 'password'}
+                  name="password"
                   value={form.password}
-                  onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
-                <button type="button" onClick={() => setShowPw(!showPw)}
-                  style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  onChange={handleChange}
+                  placeholder="••••••••"
+                  required
+                  style={{ paddingRight: 44 }}
+                />
+                <button type="button" onClick={() => setShowPw(v => !v)}
+                  style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 0 }}>
                   {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <span style={{ fontSize: 13, color: 'var(--accent-green)', cursor: 'pointer' }}>Forgot password?</span>
-            </div>
-
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
-              Sign In <ArrowRight size={16} />
+            {/* Submit */}
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: 8 }} disabled={loading}>
+              {loading ? <><Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Signing in...</> : 'Sign In'}
             </button>
           </form>
 
-          <div className="divider" style={{ margin: '24px 0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-              <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>OR</span>
-              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          {/* Demo buttons */}
+          <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border-subtle)' }}>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textAlign: 'center' }}>DEMO ACCOUNTS</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <button className="btn btn-secondary btn-sm" style={{ justifyContent: 'center' }} onClick={() => fillDemo('user')}>
+                👤 User Demo
+              </button>
+              <button className="btn btn-secondary btn-sm" style={{ justifyContent: 'center' }} onClick={() => fillDemo('admin')}>
+                🛡️ Admin Demo
+              </button>
             </div>
           </div>
 
-          <button className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center' }}>
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" style={{ width: 18, height: 18 }} />
-            Continue with Google
-          </button>
+          <p style={{ textAlign: 'center', marginTop: 20, fontSize: 14, color: 'var(--text-secondary)' }}>
+            Don't have an account?{' '}
+            <Link to="/register" style={{ color: 'var(--accent-lime)', fontWeight: 600 }}>Sign up</Link>
+          </p>
         </div>
-
-        <p style={{ textAlign: 'center', marginTop: 24, fontSize: 14, color: 'var(--text-secondary)' }}>
-          New to GymFlow?{' '}
-          <Link to="/register" style={{ color: 'var(--accent-green)', fontWeight: 700, textDecoration: 'none' }}>Create account</Link>
-        </p>
       </div>
     </div>
   );
