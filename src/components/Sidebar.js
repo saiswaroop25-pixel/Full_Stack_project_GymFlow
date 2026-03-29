@@ -1,226 +1,136 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import {
-  LayoutDashboard, Users, Zap, Calendar, Dumbbell,
-  BarChart3, UtensilsCrossed, Activity, Target,
-  Clock, Bell, User, LogOut, Menu, X, ChevronRight,
-  Shield
-} from 'lucide-react';
+import { LogOut, Sun, Moon } from 'lucide-react';
+import './Sidebar.css';
 
-const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/app/dashboard' },
-  { icon: Users, label: 'Live Crowd', path: '/app/crowd', badge: 'LIVE' },
-  { icon: Calendar, label: 'Calendar Sync', path: '/app/calendar' },
-  { icon: Dumbbell, label: 'Workout Logger', path: '/app/workout' },
-  { icon: BarChart3, label: 'Analytics', path: '/app/analytics' },
-  { icon: UtensilsCrossed, label: 'Diet Tracker', path: '/app/diet' },
-  { icon: Activity, label: 'Activity', path: '/app/activity' },
-  { icon: Target, label: 'Goals', path: '/app/goals' },
-  { icon: Clock, label: 'Slot Booking', path: '/app/slots' },
-  { icon: Bell, label: 'Notifications', path: '/app/notifications' },
-  { icon: User, label: 'Profile', path: '/app/profile' },
+const userNav = [
+  { to: '/app/dashboard',     icon: '⬡', label: 'Dashboard' },
+  { to: '/app/crowd',         icon: '◉', label: 'Live Crowd' },
+  { to: '/app/calendar',      icon: '▦', label: 'Calendar Sync' },
+  { to: '/app/workout',       icon: '◈', label: 'Workout Logger' },
+  { to: '/app/analytics',     icon: '◎', label: 'Analytics' },
+  { to: '/app/diet',          icon: '◇', label: 'Diet Tracker' },
+  { to: '/app/activity',      icon: '◌', label: 'Activity' },
+  { to: '/app/goals',         icon: '◎', label: 'Goals' },
+  { to: '/app/slots',         icon: '▣', label: 'Slot Booking' },
+  { to: '/app/notifications',  icon: '◈', label: 'Notifications' },
+  { to: '/app/profile',       icon: '◯', label: 'Profile' },
 ];
 
-export default function Sidebar() {
-  const { user, notifications } = useApp();
-  const [collapsed, setCollapsed] = useState(false);
-  const navigate = useNavigate();
+const adminNav = [
+  { to: '/admin/dashboard',     icon: '⬡', label: 'Dashboard' },
+  { to: '/admin/occupancy',     icon: '◉', label: 'Live Occupancy' },
+  { to: '/admin/members',       icon: '◯', label: 'Manage Members' },
+  { to: '/admin/equipment',     icon: '◈', label: 'Equipment' },
+  { to: '/admin/subscriptions', icon: '▦', label: 'Subscriptions' },
+  { to: '/admin/announcements', icon: '◇', label: 'Announcements' },
+  { to: '/admin/reports',       icon: '◎', label: 'Analytics & Reports' },
+  { to: '/admin/ai-insights',   icon: '◌', label: 'AI Insights' },
+];
+
+export default function Sidebar({ isAdmin = false, onToggleRole, darkMode, onToggleDark }) {
+  const navigate  = useNavigate();
+  const { user, logout } = useApp();
+  const nav = isAdmin ? adminNav : userNav;
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const initials = user?.name
+    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : 'GF';
+
+  const planColors = { BASIC: '#9090b0', PREMIUM: '#c8ff00', STUDENT: '#ffd166', ANNUAL: '#00d4ff' };
+  const planColor  = planColors[user?.plan] || '#9090b0';
 
   return (
-    <>
-      {/* Mobile overlay */}
-      <div className={`sidebar-overlay ${collapsed ? '' : 'active'}`} onClick={() => setCollapsed(true)} />
+    <aside className="sidebar">
 
-      <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
-        {/* Logo */}
-        <div className="sidebar-logo">
-          <div className="logo-icon">
-            <Zap size={18} fill="currentColor" />
-          </div>
-          {!collapsed && <span className="logo-text">GYM<span>FLOW</span></span>}
-          <button className="sidebar-toggle" onClick={() => setCollapsed(!collapsed)}>
-            {collapsed ? <Menu size={16} /> : <X size={16} />}
-          </button>
+      {/* Logo */}
+      <div className="sidebar-logo" onClick={() => navigate(isAdmin ? '/admin/dashboard' : '/app/dashboard')}>
+        <div className="logo-icon"><span>GF</span></div>
+        <div className="logo-text">
+          <span className="logo-main">GYM</span>
+          <span className="logo-accent">FLOW</span>
         </div>
+      </div>
 
-        {/* User pill */}
-        {!collapsed && (
-          <div className="sidebar-user">
-            <div className="avatar">{user.avatar}</div>
-            <div className="sidebar-user-info">
-              <div className="sidebar-user-name">{user.name}</div>
-              <span className="badge badge-green" style={{ fontSize: '9px' }}>{user.plan}</span>
+      {/* Role toggle — only show if user is ADMIN */}
+      {user?.role === 'ADMIN' && (
+        <div className="sidebar-role-toggle">
+          <button className={`role-btn ${!isAdmin ? 'active' : ''}`} onClick={() => onToggleRole(false)}>Member</button>
+          <button className={`role-btn ${isAdmin ? 'active' : ''}`}  onClick={() => onToggleRole(true)}>Admin</button>
+        </div>
+      )}
+
+      {/* Nav */}
+      <nav className="sidebar-nav">
+        <div className="nav-section-label">{isAdmin ? 'MANAGEMENT' : 'MY FITNESS'}</div>
+        {nav.map(item => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.to === '/admin/dashboard' || item.to === '/app/dashboard'}
+            className={({ isActive }) => `nav-item ${isActive ? 'nav-item-active' : ''}`}
+          >
+            <span className="nav-icon">{item.icon}</span>
+            <span className="nav-label">{item.label}</span>
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* Bottom */}
+      <div className="sidebar-footer">
+
+        {/* Dark/Light mode toggle */}
+        <button
+          onClick={onToggleDark}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+            background: 'var(--bg-elevated)', border: '1px solid var(--border-medium)',
+            borderRadius: 8, padding: '8px 12px', cursor: 'pointer',
+            color: 'var(--text-secondary)', fontSize: 13, marginBottom: 10,
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+        >
+          {darkMode ? <Sun size={14} /> : <Moon size={14} />}
+          {darkMode ? 'Light Mode' : 'Dark Mode'}
+        </button>
+
+        {/* User info */}
+        <div className="sidebar-user">
+          <div className="user-avatar" style={{ borderColor: planColor, color: planColor }}>
+            {initials}
+          </div>
+          <div className="user-info">
+            <div className="user-name">{user?.name || 'User'}</div>
+            <div className="user-plan" style={{ color: planColor }}>
+              {user?.plan || 'Basic'} Member
             </div>
-            <ChevronRight size={14} style={{ color: 'var(--text-muted)', marginLeft: 'auto' }} />
           </div>
-        )}
-
-        {/* Nav */}
-        <nav className="sidebar-nav">
-          {navItems.map(({ icon: Icon, label, path, badge }) => (
-            <NavLink key={path} to={path} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-              <Icon size={18} />
-              {!collapsed && (
-                <>
-                  <span>{label}</span>
-                  {badge === 'LIVE' && (
-                    <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <div className="live-dot" style={{ width: 6, height: 6 }} />
-                    </span>
-                  )}
-                  {label === 'Notifications' && notifications > 0 && (
-                    <span className="nav-badge">{notifications}</span>
-                  )}
-                </>
-              )}
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className="sidebar-bottom">
-          <button className="nav-item" onClick={() => navigate('/admin/dashboard')} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer' }}>
-            <Shield size={18} />
-            {!collapsed && <span>Admin Panel</span>}
-          </button>
-          <button className="nav-item" onClick={() => navigate('/')} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer' }}>
-            <LogOut size={18} />
-            {!collapsed && <span>Logout</span>}
-          </button>
         </div>
-      </aside>
 
-      <style>{`
-        .sidebar {
-          position: fixed;
-          left: 0; top: 0; bottom: 0;
-          width: 260px;
-          background: var(--bg-secondary);
-          border-right: 1px solid var(--border);
-          display: flex;
-          flex-direction: column;
-          z-index: 100;
-          transition: width 0.3s cubic-bezier(0.4,0,0.2,1);
-          overflow: hidden;
-        }
-        .sidebar.collapsed { width: 72px; }
-
-        .sidebar-logo {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 24px 20px 20px;
-          border-bottom: 1px solid var(--border);
-          min-height: 72px;
-        }
-        .logo-icon {
-          width: 36px; height: 36px;
-          background: var(--accent-green);
-          color: #000;
-          border-radius: 10px;
-          display: flex; align-items: center; justify-content: center;
-          flex-shrink: 0;
-        }
-        .logo-text {
-          font-family: var(--font-display);
-          font-size: 20px;
-          letter-spacing: 0.1em;
-          color: var(--text-primary);
-          white-space: nowrap;
-        }
-        .logo-text span { color: var(--accent-green); }
-        .sidebar-toggle {
-          margin-left: auto;
-          background: var(--bg-elevated);
-          border: 1px solid var(--border);
-          color: var(--text-secondary);
-          width: 28px; height: 28px;
-          border-radius: 6px;
-          display: flex; align-items: center; justify-content: center;
-          cursor: pointer;
-          flex-shrink: 0;
-        }
-
-        .sidebar-user {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 14px 16px;
-          margin: 12px 12px 4px;
-          background: var(--bg-elevated);
-          border-radius: var(--radius-md);
-          border: 1px solid var(--border);
-          cursor: pointer;
-          transition: border-color 0.2s;
-        }
-        .sidebar-user:hover { border-color: var(--border-glow); }
-        .avatar {
-          width: 36px; height: 36px;
-          background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
-          border-radius: 10px;
-          display: flex; align-items: center; justify-content: center;
-          font-weight: 800; font-size: 13px;
-          color: #000;
-          flex-shrink: 0;
-        }
-        .sidebar-user-name { font-size: 13px; font-weight: 700; white-space: nowrap; }
-        .sidebar-user-info { display: flex; flex-direction: column; gap: 3px; }
-
-        .sidebar-nav {
-          flex: 1;
-          padding: 12px;
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          overflow-y: auto;
-          overflow-x: hidden;
-        }
-
-        .nav-item {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 10px 12px;
-          border-radius: var(--radius-sm);
-          color: var(--text-secondary);
-          text-decoration: none;
-          font-size: 13px;
-          font-weight: 600;
-          transition: all 0.15s;
-          white-space: nowrap;
-          position: relative;
-        }
-        .nav-item:hover { background: var(--bg-elevated); color: var(--text-primary); }
-        .nav-item.active {
-          background: var(--accent-green-dim);
-          color: var(--accent-green);
-          border: 1px solid rgba(0,255,135,0.2);
-        }
-        .nav-item.active svg { color: var(--accent-green); }
-
-        .nav-badge {
-          margin-left: auto;
-          background: var(--accent-orange);
-          color: #fff;
-          font-size: 10px;
-          font-weight: 800;
-          padding: 2px 6px;
-          border-radius: 100px;
-        }
-
-        .sidebar-bottom {
-          padding: 12px;
-          border-top: 1px solid var(--border);
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        @media (max-width: 768px) {
-          .sidebar { transform: translateX(-100%); }
-          .sidebar.collapsed { transform: translateX(0); width: 260px; }
-        }
-      `}</style>
-    </>
+        {/* Logout button */}
+        <button
+          onClick={handleLogout}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+            background: 'rgba(255,59,59,0.08)', border: '1px solid rgba(255,59,59,0.2)',
+            borderRadius: 8, padding: '8px 12px', cursor: 'pointer',
+            color: '#ff6b6b', fontSize: 13, marginTop: 8, transition: 'all 0.2s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,59,59,0.15)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,59,59,0.08)'; }}
+        >
+          <LogOut size={14} />
+          Sign Out
+        </button>
+      </div>
+    </aside>
   );
 }
