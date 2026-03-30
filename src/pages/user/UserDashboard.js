@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { workoutAPI, dietAPI, activityAPI, crowdAPI } from '../../api';
+import { io } from 'socket.io-client';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Users, Flame, Dumbbell, TrendingUp, Clock, Zap, ArrowRight, ChevronRight } from 'lucide-react';
 import { DashboardSkeleton } from '../../components/Skeleton';
@@ -34,8 +34,11 @@ export default function UserDashboard() {
   const [hourlySlots, setHourlySlots] = useState([]);
 
   useEffect(() => {
-    const tick = setInterval(() => setTime(new Date()), 60000);
-    return () => clearInterval(tick);
+    const socket = io('http://localhost:5000', { transports: ['websocket'] });
+    socket.on('crowd:update', (data) => {
+    setCrowd(data);
+    });
+    return () => socket.disconnect();
   }, []);
 
   useEffect(() => {
@@ -80,6 +83,7 @@ export default function UserDashboard() {
       }
     };
     load();
+
   }, []);
 
   if (loading) return <DashboardSkeleton />;

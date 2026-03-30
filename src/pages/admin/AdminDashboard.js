@@ -20,6 +20,8 @@ export default function AdminDashboard() {
       }
     };
     load();
+    const interval = setInterval(load, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   if (loading) return (

@@ -11,7 +11,11 @@ export default function SlotBookingPage() {
   const [error, setError]         = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
-  useEffect(() => { loadData(); }, [selectedDate]);
+  useEffect(() => {
+    loadData();
+    const interval = setInterval(loadData, 60000);
+    return () => clearInterval(interval);
+  }, [selectedDate]);
 
   const loadData = async () => {
     setLoading(true);

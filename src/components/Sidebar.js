@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { LogOut, Sun, Moon } from 'lucide-react';
-import './Sidebar.css';
+
 
 const userNav = [
   { to: '/app/dashboard',     icon: '⬡', label: 'Dashboard' },
