@@ -1,9 +1,8 @@
 import axios from 'axios';
-
-const API_BASE = 'http://localhost:5000/api';
+import { API_BASE_URL } from '../config';
 
 const api = axios.create({
-  baseURL: API_BASE,
+  baseURL: API_BASE_URL,
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
 });
@@ -64,6 +63,8 @@ export const crowdAPI = {
   getWeekly:  ()          => api.get('/crowd/weekly'),
   checkIn:    ()          => api.post('/crowd/checkin'),
   checkOut:   ()          => api.post('/crowd/checkout'),
+  overrideCrowd: (data)   => api.post('/crowd/override', data),
+  broadcastAlert: (data)  => api.post('/crowd/broadcast', data),
 };
 
 // ── Slots ─────────────────────────────────────────────────────────────────────

@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { crowdAPI, adminAPI } from '../../api';
+import { crowdAPI } from '../../api';
+import { SOCKET_URL } from '../../config';
 import { Wifi, WifiOff, Loader } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-
-const SOCKET_URL = 'http://localhost:5000';
 
 export default function LiveOccupancyControl() {
   const [crowd, setCrowd]         = useState({ checkedIn: 0, capacity: 200, crowdPct: 0, crowdLevel: 'LOW' });
@@ -38,14 +37,7 @@ export default function LiveOccupancyControl() {
     if (isNaN(pct) || pct < 0 || pct > 100) return;
     setOverriding(true);
     try {
-      await crowdAPI.checkIn(); // uses admin override endpoint via REST
-      // Direct override via API
-      const response = await fetch('http://localhost:5000/api/crowd/override', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('gymflow_token')}` },
-        body: JSON.stringify({ crowdPct: pct }),
-      });
-      const data = await response.json();
+      const { data } = await crowdAPI.overrideCrowd({ crowdPct: pct });
       setCrowd(data.data);
       setSuccess(`Crowd set to ${pct}% and broadcast to all clients!`);
       setOverride('');
@@ -57,11 +49,7 @@ export default function LiveOccupancyControl() {
     if (!alertMsg.trim()) return;
     setBroadcasting(true);
     try {
-      await fetch('http://localhost:5000/api/crowd/broadcast', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('gymflow_token')}` },
-        body: JSON.stringify({ message: alertMsg, type: 'alert' }),
-      });
+      await crowdAPI.broadcastAlert({ message: alertMsg, type: 'alert' });
       setSuccess('Alert broadcast to all connected users!');
       setAlertMsg('');
       setTimeout(() => setSuccess(''), 3000);
