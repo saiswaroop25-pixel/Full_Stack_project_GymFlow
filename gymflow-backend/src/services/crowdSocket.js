@@ -41,29 +41,6 @@ module.exports = function crowdSocket(io, prisma) {
       })
       .catch(() => {});
 
-    // Admin override from client
-    socket.on('admin:override', async (data) => {
-      const { crowdPct } = data;
-      if (typeof crowdPct !== 'number') return;
-
-      const pct      = Math.min(100, Math.max(0, crowdPct));
-      const checkedIn = Math.round((pct / 100) * CAPACITY);
-      const level     = crowdLevel(pct);
-
-      const payload = {
-        checkedIn,
-        capacity:  CAPACITY,
-        crowdPct:  pct,
-        crowdLevel: level,
-        timestamp: new Date(),
-        isOverride: true,
-      };
-
-      // Broadcast to everyone
-      io.emit('crowd:update', payload);
-      console.log(`[Socket.IO] Admin override → ${pct}%`);
-    });
-
     socket.on('disconnect', () => {
       connectedClients--;
       console.log(`[Socket.IO] Client disconnected: ${socket.id} (total: ${connectedClients})`);
