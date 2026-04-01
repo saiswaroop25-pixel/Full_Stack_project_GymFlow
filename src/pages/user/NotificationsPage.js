@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
+import { SOCKET_URL } from '../../config';
 import { Bell, Users, Dumbbell, Megaphone, AlertTriangle, CheckCircle } from 'lucide-react';
-
-const SOCKET_URL = 'http://localhost:5000';
 
 const TYPE_ICONS = {
   crowd:    { icon: Users,          color: '#00ff87' },

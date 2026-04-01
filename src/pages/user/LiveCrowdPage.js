@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import { crowdAPI } from '../../api';
+import { SOCKET_URL } from '../../config';
 import { Users, TrendingUp, Clock, Wifi, WifiOff } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-
-const SOCKET_URL = 'http://localhost:5000';
 
 export default function LiveCrowdPage() {
   const [crowd, setCrowd]       = useState({ checkedIn: 0, capacity: 200, crowdPct: 0, crowdLevel: 'LOW' });
