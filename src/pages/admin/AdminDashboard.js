@@ -39,7 +39,7 @@ export default function AdminDashboard() {
 
   const statCards = [
     { label: 'Total Members',    value: stats.totalMembers.toLocaleString(),    icon: Users,       color: '#00d4ff', sub: `${stats.activeMembers} active` },
-    { label: 'Monthly Revenue',  value: `₹${(stats.monthlyRevenue/100).toFixed(0)}`,  icon: DollarSign,  color: '#00ff87', sub: 'Estimated' },
+    { label: 'Monthly Revenue',  value: `₹${stats.monthlyRevenue.toLocaleString()}`,   icon: DollarSign,  color: '#00ff87', sub: 'Estimated' },
     { label: 'Today\'s Checkins',value: stats.todayAttendance,                  icon: Activity,    color: '#ffd166', sub: 'Checked in today' },
     { label: 'Retention Rate',   value: `${stats.retentionRate}%`,              icon: TrendingUp,  color: '#a78bfa', sub: 'Active members' },
   ];

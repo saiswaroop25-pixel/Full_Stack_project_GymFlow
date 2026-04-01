@@ -47,7 +47,7 @@ export default function SubscriptionManagement() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
         {[
           { label: 'Total Members',    value: stats.totalMembers,                   color: '#00d4ff' },
-          { label: 'Monthly Revenue',  value: `₹${(totalRevenue / 100).toFixed(0)}`,color: '#00ff87' },
+          { label: 'Monthly Revenue',  value: `₹${totalRevenue.toLocaleString()}`, color: '#00ff87' },
           { label: 'Active Members',   value: stats.activeMembers,                  color: '#a78bfa' },
         ].map(({ label, value, color }) => (
           <div key={label} className="card" style={{ padding: 24, textAlign: 'center' }}>
@@ -82,7 +82,7 @@ export default function SubscriptionManagement() {
               <div style={{ marginBottom: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
                   <span>{pct}% of members</span>
-                  <span style={{ color: cfg.color, fontWeight: 700 }}>₹{(revenue / 100).toFixed(0)}/mo</span>
+                  <span style={{ color: cfg.color, fontWeight: 700 }}>₹{revenue.toLocaleString()}/mo</span>
                 </div>
                 <div style={{ height: 8, background: 'var(--bg-elevated)', borderRadius: 4, overflow: 'hidden' }}>
                   <div style={{ width: `${pct}%`, height: '100%', background: cfg.color, borderRadius: 4, transition: 'width 0.6s ease' }} />
