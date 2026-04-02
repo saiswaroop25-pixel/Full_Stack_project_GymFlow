@@ -1,51 +1,103 @@
-import React, { useState } from 'react';
-import { Brain, TrendingDown, Users, Clock, Zap, ChevronRight, AlertTriangle, CheckCircle } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { adminAPI } from '../../api';
+import { Brain, TrendingDown, Zap, Clock, Loader, AlertTriangle, ChevronRight } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
-const churnRisk = [
-  { name: 'Ananya Singh', risk: 92, lastVisit: '12 days ago', plan: 'Student', reason: 'Long absence + near expiry' },
-  { name: 'Sneha Gupta', risk: 85, lastVisit: '21 days ago', plan: 'Student', reason: 'Very low visit frequency' },
-  { name: 'Dev Kapoor', risk: 78, lastVisit: '8 days ago', plan: 'Basic', reason: 'Declining visit frequency' },
-  { name: 'Ritesh Jain', risk: 72, lastVisit: '10 days ago', plan: 'Basic', reason: 'Missed 3 booked slots' },
-  { name: 'Swati Reddy', risk: 65, lastVisit: '6 days ago', plan: 'Premium', reason: 'Reduced workout duration' },
-];
-
-const peakForecast = [
-  { hour: '5PM', expected: 82, confidence: 94 }, { hour: '6PM', expected: 96, confidence: 97 },
-  { hour: '7PM', expected: 88, confidence: 91 }, { hour: '8PM', expected: 62, confidence: 88 },
-  { hour: '9PM', expected: 38, confidence: 85 },
-];
-
-const planSuggestions = [
-  { member: 'Vikram Nair', suggestion: 'Upgrade to Annual (saves ₹3,988/year)', action: 'Upsell', color: 'var(--accent-lime)' },
-  { member: 'Priya Sharma', suggestion: 'Add group classes to Basic plan', action: 'Cross-sell', color: 'var(--accent-cyan)' },
-  { member: 'Kiran Patel', suggestion: 'Offer personal trainer trial (unused benefit)', action: 'Engage', color: 'var(--accent-purple)' },
-];
+const CARD_COLORS = {
+  churn: 'var(--accent-red)',
+  peak: 'var(--accent-amber)',
+  revenue: 'var(--accent-lime)',
+  accuracy: 'var(--accent-purple)',
+};
 
 export default function AIInsightsPage() {
-  const [expandedChurn, setExpandedChurn] = useState(null);
+  const [data, setData] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const loadInsights = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const { data: response } = await adminAPI.getAIInsights();
+        setData(response.data);
+      } catch (err) {
+        setError('Failed to load AI insights.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadInsights();
+  }, []);
+
+  const statCards = useMemo(() => {
+    if (!data?.summary) return [];
+
+    return [
+      {
+        label: 'Members At Risk',
+        value: data.summary.membersAtRisk,
+        color: CARD_COLORS.churn,
+        icon: TrendingDown,
+      },
+      {
+        label: 'Predicted Peak Hour',
+        value: data.summary.predictedPeakHour,
+        color: CARD_COLORS.peak,
+        icon: Clock,
+      },
+      {
+        label: 'Upgrade Opportunities',
+        value: data.summary.upsellOpportunities,
+        color: CARD_COLORS.revenue,
+        icon: Zap,
+      },
+      {
+        label: 'Forecast Accuracy',
+        value: `${data.summary.predictionAccuracy}%`,
+        color: CARD_COLORS.accuracy,
+        icon: Brain,
+      },
+    ];
+  }, [data]);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 320, gap: 16 }}>
+        <Loader size={28} color="var(--accent-lime)" style={{ animation: 'spin 1s linear infinite' }} />
+        <span style={{ color: 'var(--text-secondary)' }}>Loading AI insights...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: 16, background: 'rgba(255,59,59,0.1)', border: '1px solid rgba(255,59,59,0.3)', borderRadius: 8, color: '#ff3b3b' }}>
+        {error}
+      </div>
+    );
+  }
+
+  const { churnRisk = [], peakForecast = [], planSuggestions = [], insights = [] } = data || {};
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'fade-up 0.5s ease' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="flex-between">
         <div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4 }}>ADMIN · ARTIFICIAL INTELLIGENCE</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4 }}>ADMIN DATA INTELLIGENCE</div>
           <h1 className="page-title">AI <span style={{ color: 'var(--accent-orange)' }}>INSIGHTS</span></h1>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: 100 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: 999 }}>
           <Brain size={14} color="var(--accent-purple)" />
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-purple)' }}>AI Model v2.4 Active</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-purple)' }}>Model trained on live gym activity</span>
         </div>
       </div>
 
-      {/* AI stats */}
       <div className="grid-4">
-        {[
-          { label: 'Members at Churn Risk', value: '28', color: 'var(--accent-red)', icon: TrendingDown },
-          { label: 'Predicted Peak Hour', value: '6PM', color: 'var(--accent-amber)', icon: Clock },
-          { label: 'Upsell Opportunities', value: '42', color: 'var(--accent-lime)', icon: Zap },
-          { label: 'Prediction Accuracy', value: '94%', color: 'var(--accent-purple)', icon: Brain },
-        ].map(({ label, value, color, icon: Icon }) => (
+        {statCards.map(({ label, value, color, icon: Icon }) => (
           <div key={label} className="card" style={{ border: `1px solid ${color}20` }}>
             <div style={{ width: 40, height: 40, background: `${color}15`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
               <Icon size={20} color={color} />
@@ -56,111 +108,114 @@ export default function AIInsightsPage() {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-        {/* Churn prediction */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.15fr 0.85fr', gap: 24 }}>
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
             <AlertTriangle size={16} color="var(--accent-red)" />
-            <div className="section-title">Churn Risk Prediction</div>
+            <div className="section-title">Churn Watchlist</div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {churnRisk.map(m => {
-              const riskColor = m.risk > 85 ? 'var(--accent-red)' : m.risk > 70 ? 'var(--accent-amber)' : 'var(--accent-lime)';
-              return (
-                <div key={m.name} onClick={() => setExpandedChurn(expandedChurn === m.name ? null : m.name)}
-                  style={{ background: 'var(--bg-elevated)', border: `1px solid ${riskColor}20`, borderRadius: 10, padding: 14, cursor: 'pointer', transition: 'all 0.2s' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <span style={{ fontWeight: 700, fontSize: 14 }}>{m.name}</span>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 800, color: riskColor }}>{m.risk}%</span>
+
+          {churnRisk.length === 0 ? (
+            <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>No high-risk members detected right now.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {churnRisk.map((member) => {
+                const riskColor = member.riskLevel === 'HIGH' ? 'var(--accent-red)' : member.riskLevel === 'MEDIUM' ? 'var(--accent-amber)' : 'var(--accent-lime)';
+                const isOpen = expandedId === member.id;
+
+                return (
+                  <div
+                    key={member.id}
+                    onClick={() => setExpandedId(isOpen ? null : member.id)}
+                    style={{ background: 'var(--bg-elevated)', border: `1px solid ${riskColor}25`, borderRadius: 10, padding: 14, cursor: 'pointer' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <span style={{ fontWeight: 700, fontSize: 14 }}>{member.name}</span>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 800, color: riskColor }}>{member.riskScore}%</span>
+                        </div>
+                        <div style={{ height: 4, background: 'var(--bg-card)', borderRadius: 999, overflow: 'hidden' }}>
+                          <div style={{ width: `${member.riskScore}%`, height: '100%', background: riskColor, borderRadius: 999 }} />
+                        </div>
                       </div>
-                      <div style={{ height: 4, background: 'var(--bg-card)', borderRadius: 100, overflow: 'hidden' }}>
-                        <div style={{ width: `${m.risk}%`, height: '100%', background: riskColor, borderRadius: 100 }} />
-                      </div>
+                      <ChevronRight size={14} color="var(--text-muted)" style={{ transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s ease' }} />
                     </div>
-                    <ChevronRight size={14} color="var(--text-muted)" style={{ transform: expandedChurn === m.name ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+
+                    {isOpen && (
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Plan: <b style={{ color: 'var(--text-primary)' }}>{member.plan}</b></span>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Visits This Month: <b style={{ color: 'var(--text-primary)' }}>{member.visitsLastMonth}</b></span>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Last Visit: <b style={{ color: 'var(--text-primary)' }}>{member.lastVisit ? new Date(member.lastVisit).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'No visits'}</b></span>
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{member.reason}</div>
+                      </div>
+                    )}
                   </div>
-                  {expandedChurn === m.name && (
-                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', animation: 'fade-up 0.2s ease' }}>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Last Visit: <b style={{ color: 'var(--text-primary)' }}>{m.lastVisit}</b></span>
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Plan: <b style={{ color: 'var(--text-primary)' }}>{m.plan}</b></span>
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10 }}>⚡ {m.reason}</div>
-                      <button className="btn btn-primary btn-sm" style={{ fontSize: 11 }}>Send Re-engagement Offer</button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Peak hour forecast */}
           <div className="card">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
               <Clock size={16} color="var(--accent-amber)" />
-              <div className="section-title">Tonight's Peak Forecast</div>
+              <div className="section-title">Evening Peak Forecast</div>
             </div>
-            <ResponsiveContainer width="100%" height={130}>
+            <ResponsiveContainer width="100%" height={150}>
               <BarChart data={peakForecast} margin={{ top: 0, right: 0, bottom: 0, left: -25 }}>
                 <XAxis dataKey="hour" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} domain={[0, 100]} />
-                <Tooltip contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} formatter={(v, n) => [`${v}%`, n === 'expected' ? 'Expected Crowd' : 'Confidence']} />
-                <Bar dataKey="expected" name="expected" radius={[4, 4, 0, 0]}>
-                  {peakForecast.map((e, i) => (
-                    <Cell key={i} fill={e.expected < 60 ? 'var(--accent-lime)' : e.expected < 80 ? 'var(--accent-amber)' : 'var(--accent-red)'} opacity={0.85} />
+                <Tooltip contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} formatter={(value, name, entry) => [`${value}%`, name === 'expected' ? `Expected crowd (${entry.payload.confidence}% confidence)` : name]} />
+                <Bar dataKey="expected" radius={[4, 4, 0, 0]}>
+                  {peakForecast.map((slot, index) => (
+                    <Cell key={index} fill={slot.expected < 60 ? 'var(--accent-lime)' : slot.expected < 80 ? 'var(--accent-amber)' : 'var(--accent-red)'} opacity={0.85} />
                   ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center', marginTop: 8 }}>
-              <span style={{ color: 'var(--accent-red)', fontWeight: 700 }}>6PM will be peak</span> — consider crowd alert at 5:30PM
-            </div>
           </div>
 
-          {/* Plan suggestions */}
           <div className="card">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
               <Zap size={16} color="var(--accent-lime)" />
-              <div className="section-title">Revenue Opportunities</div>
+              <div className="section-title">Upgrade Signals</div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {planSuggestions.map(s => (
-                <div key={s.member} style={{ background: 'var(--bg-elevated)', borderRadius: 10, padding: 12, display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>{s.member}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4 }}>{s.suggestion}</div>
+              {planSuggestions.length === 0 ? (
+                <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>No targeted upgrade suggestions available yet.</div>
+              ) : (
+                planSuggestions.map((suggestion) => (
+                  <div key={suggestion.id} style={{ background: 'var(--bg-elevated)', borderRadius: 10, padding: 12, display: 'flex', gap: 12, alignItems: 'center' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>{suggestion.member}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4 }}>{suggestion.suggestion}</div>
+                    </div>
+                    <span style={{ padding: '4px 10px', borderRadius: 999, fontSize: 10, fontWeight: 800, background: 'rgba(0,255,135,0.12)', color: 'var(--accent-lime)', border: '1px solid rgba(0,255,135,0.2)', whiteSpace: 'nowrap' }}>
+                      {suggestion.action}
+                    </span>
                   </div>
-                  <span style={{ padding: '4px 10px', borderRadius: 100, fontSize: 10, fontWeight: 800, background: `${s.color}15`, color: s.color, border: `1px solid ${s.color}30`, whiteSpace: 'nowrap' }}>{s.action}</span>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* AI recommendations */}
       <div className="card" style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.08), var(--bg-card))', border: '1px solid rgba(139,92,246,0.2)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <Brain size={16} color="var(--accent-purple)" />
-          <div className="section-title">AI Recommendations for This Week</div>
+          <div className="section-title">Recommended Actions</div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
-          {[
-            { icon: '📧', title: 'Re-engagement Campaign', desc: 'Send personalized offers to 28 at-risk members. Predicted save rate: 62%.' },
-            { icon: '📅', title: 'Off-Peak Incentive', desc: 'Offer 10% discount for visits before 4PM to reduce 6PM peak by ~15%.' },
-            { icon: '💪', title: 'Equipment Optimization', desc: 'Add 2 more squat racks — demand analysis shows 38% queue abandonment.' },
-          ].map(r => (
-            <div key={r.title} style={{ background: 'var(--bg-elevated)', borderRadius: 12, padding: 16, border: '1px solid rgba(139,92,246,0.1)' }}>
-              <div style={{ fontSize: 28, marginBottom: 10 }}>{r.icon}</div>
-              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{r.title}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{r.desc}</div>
-              <button className="btn btn-ghost btn-sm" style={{ marginTop: 12, padding: '5px 12px', border: '1px solid rgba(139,92,246,0.3)', color: 'var(--accent-purple)' }}>
-                Apply Recommendation
-              </button>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+          {insights.map((insight) => (
+            <div key={insight.title} style={{ background: 'var(--bg-elevated)', borderRadius: 12, padding: 16, border: '1px solid rgba(139,92,246,0.12)' }}>
+              <div style={{ fontSize: 11, color: 'var(--accent-purple)', fontWeight: 800, marginBottom: 10 }}>{insight.impact} IMPACT</div>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{insight.title}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{insight.message}</div>
             </div>
           ))}
         </div>
