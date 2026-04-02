@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "lint": "node --check src/server.js && node --check src/controllers/authController.js && node --check src/controllers/workoutController.js && node --check src/controllers/dietController.js && node --check src/controllers/crowdController.js && node --check src/controllers/activityController.js && node --check src/controllers/adminController.js",
+    "test": "node --test",
     "db:migrate": "npx prisma migrate dev",
     "db:generate": "npx prisma generate",
     "db:push": "npx prisma db push",

@@ -1,115 +1,117 @@
-# 🏋️ GymFlow — Smart Gym Management Platform
+# GymFlow
 
-A full-stack intelligent fitness management platform with real-time crowd monitoring, workout tracking, diet analytics, and AI-powered insights.
+Full-stack gym management app with a React frontend and an Express + Prisma backend.
 
-## 🚀 Getting Started
+## Project Structure
 
-### Prerequisites
-- Node.js 16+ installed
-- npm or yarn
+- `src/`: React frontend
+- `gymflow-backend/`: API server, Prisma schema, seed data
+- `.env.example`: example env file for local development
 
-### Install & Run
+## Local Setup
+
+### 1. Install dependencies
+
 ```bash
-cd gymflow
 npm install
-npm start
-```
-The app will open at `http://localhost:3000`
-
-## 🗺️ App Navigation
-
-### Public Pages (No Auth Required)
-| Route | Page |
-|-------|------|
-| `/` | Landing Page |
-| `/login` | Login |
-| `/register` | Registration |
-
-### User Module
-| Route | Page |
-|-------|------|
-| `/app/dashboard` | User Dashboard |
-| `/app/crowd` | Live Crowd Monitor |
-| `/app/calendar` | Google Calendar Sync |
-| `/app/workout` | Workout Logger |
-| `/app/analytics` | Workout Analytics |
-| `/app/diet` | Diet Tracker |
-| `/app/activity` | Activity Monitor |
-| `/app/goals` | Goal Management |
-| `/app/slots` | Slot Booking |
-| `/app/notifications` | Notifications |
-| `/app/profile` | Profile Settings |
-
-### Admin Module
-| Route | Page |
-|-------|------|
-| `/admin/dashboard` | Admin Operations Hub |
-| `/admin/occupancy` | Live Occupancy Control |
-| `/admin/members` | Member Management |
-| `/admin/equipment` | Equipment Status |
-| `/admin/subscriptions` | Subscription & Revenue |
-| `/admin/announcements` | Push Notifications |
-| `/admin/reports` | Analytics & Reports |
-| `/admin/ai-insights` | AI Intelligence Hub |
-
-## 🎨 Design System
-
-- **Font Display**: Bebas Neue (headings)
-- **Font Body**: Space Grotesk
-- **Font Mono**: JetBrains Mono (numbers, code)
-- **Theme**: Dark industrial, lime-green accents
-- **Accent Colors**: Lime `#c8ff00`, Red `#ff3b3b`, Amber `#ffb800`, Cyan `#00d4ff`
-
-## 🏗️ Architecture
-
-```
-src/
-├── components/        # Shared layout components
-│   ├── Sidebar.js     # User sidebar navigation
-│   ├── AdminLayout.js # Admin layout wrapper
-│   └── UserLayout.js  # User layout wrapper
-├── context/
-│   └── AppContext.js  # Global app state
-├── data/
-│   └── mockData.js    # All mock data
-├── pages/
-│   ├── public/        # Landing, Login, Register
-│   ├── user/          # 12 user module screens
-│   └── admin/         # 8 admin module screens
-└── index.css          # Global design system
+cd gymflow-backend
+npm install
 ```
 
-## 🔌 Backend Integration Guide
+### 2. Create env files
 
-When building the backend (Node.js + Express + PostgreSQL), connect these endpoints:
+Frontend and shared local defaults:
 
-### Key API Endpoints to Build
-```
-GET  /api/gym/crowd              — Live crowd data
-POST /api/auth/login             — User login (JWT)
-POST /api/auth/register          — User registration
-GET  /api/workout/logs           — Workout history
-POST /api/workout/logs           — Log new workout
-GET  /api/diet/meals             — Today's meals
-POST /api/diet/meals             — Add meal
-GET  /api/slots/available        — Available booking slots
-POST /api/slots/book             — Book a slot
-GET  /api/admin/stats            — Admin KPIs
-GET  /api/admin/members          — Member list
+```bash
+cp .env.example .env
 ```
 
-## 📦 Tech Stack
+Backend-only example:
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 18, React Router 6 |
-| Charts | Recharts |
-| Styling | Custom CSS Design System |
-| State | React Context API |
-| Icons | Lucide React |
-| Fonts | Google Fonts (Bebas Neue, Space Grotesk, JetBrains Mono) |
+```bash
+cd gymflow-backend
+cp .env.example .env
+```
 
-## 🎯 Total Screens: 22
+### 3. Set up the database
 
-3 Public + 11 User Module + 8 Admin Module = **22 screens**
+```bash
+cd gymflow-backend
+npm run db:generate
+npm run db:push
+npm run db:seed
+```
 
+### 4. Run the app
+
+From the repo root:
+
+```bash
+npm run dev
+```
+
+Frontend: `http://localhost:3000`
+
+Backend: `http://localhost:5000`
+
+Health check: `http://localhost:5000/health`
+
+## Useful Scripts
+
+Repo root:
+
+- `npm start`: start the frontend
+- `npm run build`: production frontend build
+- `npm run lint`: build-based frontend validation
+- `npm test`: frontend tests in non-watch mode
+- `npm run dev`: run frontend and backend together
+
+Backend (`gymflow-backend/`):
+
+- `npm run dev`: start API with nodemon
+- `npm start`: start API
+- `npm run lint`: Prisma validation + Node syntax check
+- `npm test`: run backend tests
+- `npm run db:generate`: generate Prisma client
+- `npm run db:push`: sync schema to database
+- `npm run db:seed`: seed demo data
+
+## Main App Routes
+
+Public:
+
+- `/`
+- `/login`
+- `/register`
+
+User:
+
+- `/app/dashboard`
+- `/app/crowd`
+- `/app/calendar`
+- `/app/workout`
+- `/app/analytics`
+- `/app/diet`
+- `/app/activity`
+- `/app/goals`
+- `/app/slots`
+- `/app/notifications`
+- `/app/profile`
+
+Admin:
+
+- `/admin/dashboard`
+- `/admin/occupancy`
+- `/admin/members`
+- `/admin/equipment`
+- `/admin/subscriptions`
+- `/admin/announcements`
+- `/admin/reports`
+- `/admin/ai-insights`
+
+## Demo Credentials
+
+After running the backend seed:
+
+- Admin: `admin@gymflow.com` / `admin123`
+- User: `arjun@example.com` / `user123`

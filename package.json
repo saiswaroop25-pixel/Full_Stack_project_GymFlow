@@ -15,7 +15,9 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "dev": "concurrently \"cd gymflow-backend && npm run dev\" \"react-scripts start\""
+    "dev": "concurrently \"cd gymflow-backend && npm run dev\" \"react-scripts start\"",
+    "lint": "react-scripts build",
+    "test": "react-scripts test --watchAll=false --passWithNoTests --runInBand"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
