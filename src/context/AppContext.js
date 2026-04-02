@@ -1,16 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import { authAPI } from '../api';
 
 const AppContext = createContext(null);
-
-const API_BASE = 'http://localhost:5000/api';
-
-const api = axios.create({ baseURL: API_BASE });
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('gymflow_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
 
 export function AppProvider({ children }) {
   const [user, setUser]       = useState(null);
@@ -23,10 +14,11 @@ export function AppProvider({ children }) {
       const savedToken = localStorage.getItem('gymflow_token');
       if (savedToken) {
         try {
-          const { data } = await api.get('/auth/me');
+          const { data } = await authAPI.getMe();
           setUser(data.user);
         } catch {
           localStorage.removeItem('gymflow_token');
+          localStorage.removeItem('gymflow_user');
           setToken(null);
         }
       }
@@ -36,7 +28,7 @@ export function AppProvider({ children }) {
   }, []);
 
   const login = async (email, password) => {
-    const { data } = await api.post('/auth/login', { email, password });
+    const { data } = await authAPI.login({ email, password });
     localStorage.setItem('gymflow_token', data.token);
     setToken(data.token);
     setUser(data.user);
@@ -44,7 +36,7 @@ export function AppProvider({ children }) {
   };
 
   const register = async (formData) => {
-    const { data } = await api.post('/auth/register', formData);
+    const { data } = await authAPI.register(formData);
     localStorage.setItem('gymflow_token', data.token);
     setToken(data.token);
     setUser(data.user);
@@ -53,6 +45,7 @@ export function AppProvider({ children }) {
 
   const logout = () => {
     localStorage.removeItem('gymflow_token');
+    localStorage.removeItem('gymflow_user');
     setToken(null);
     setUser(null);
   };
