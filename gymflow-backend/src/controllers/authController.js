@@ -15,6 +15,14 @@ const sanitize = (user) => {
   return safe;
 };
 
+const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+
+const parseOptionalFloat = (value) => {
+  if (value === '' || value === null) return null;
+  if (value === undefined) return undefined;
+  return parseFloat(value);
+};
+
 // ── POST /api/auth/register ───────────────────────────────────────────────────
 exports.register = async (req, res, next) => {
   try {
@@ -117,17 +125,27 @@ exports.updateProfile = async (req, res, next) => {
     const prisma = req.app.get('prisma');
     const { name, goal, height, weight, targetWeight, bodyFat, phone } = req.body;
 
+    const data = {};
+    if (hasOwn(req.body, 'name')) data.name = name;
+    if (hasOwn(req.body, 'goal')) data.goal = goal;
+
+    const parsedHeight = parseOptionalFloat(height);
+    if (parsedHeight !== undefined) data.height = parsedHeight;
+
+    const parsedWeight = parseOptionalFloat(weight);
+    if (parsedWeight !== undefined) data.weight = parsedWeight;
+
+    const parsedTargetWeight = parseOptionalFloat(targetWeight);
+    if (parsedTargetWeight !== undefined) data.targetWeight = parsedTargetWeight;
+
+    const parsedBodyFat = parseOptionalFloat(bodyFat);
+    if (parsedBodyFat !== undefined) data.bodyFat = parsedBodyFat;
+
+    if (hasOwn(req.body, 'phone')) data.phone = phone || null;
+
     const user = await prisma.user.update({
       where: { id: req.user.id },
-      data: {
-        ...(name         && { name }),
-        ...(goal         && { goal }),
-        ...(height       && { height: parseFloat(height) }),
-        ...(weight       && { weight: parseFloat(weight) }),
-        ...(targetWeight && { targetWeight: parseFloat(targetWeight) }),
-        ...(bodyFat      && { bodyFat: parseFloat(bodyFat) }),
-        ...(phone        && { phone }),
-      },
+      data,
     });
 
     res.json({ success: true, message: 'Profile updated.', user: sanitize(user) });
