@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Zap, Eye, EyeOff, AlertCircle, Loader } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { consumeSessionNotice } from '../../api/session';
 
 export default function LoginPage() {
   const navigate  = useNavigate();
@@ -11,6 +12,11 @@ export default function LoginPage() {
   const [showPw, setShowPw]   = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
+
+  useEffect(() => {
+    const sessionNotice = consumeSessionNotice();
+    if (sessionNotice) setError(sessionNotice);
+  }, []);
 
   const handleChange = (e) =>
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));

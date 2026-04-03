@@ -1,44 +1,28 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authAPI } from '../api';
+import {
+  clearSession,
+  persistSession,
+  readStoredToken,
+  readStoredUser,
+} from '../api/session';
 
 const AppContext = createContext(null);
-const TOKEN_KEY = 'gymflow_token';
-const USER_KEY = 'gymflow_user';
-
-const readStoredUser = () => {
-  try {
-    const raw = localStorage.getItem(USER_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    localStorage.removeItem(USER_KEY);
-    return null;
-  }
-};
-
-const persistSession = (token, user) => {
-  localStorage.setItem(TOKEN_KEY, token);
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
-};
-
-const clearSession = () => {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
-};
 
 export function AppProvider({ children }) {
   const [user, setUser]       = useState(() => readStoredUser());
-  const [token, setToken]     = useState(localStorage.getItem(TOKEN_KEY));
+  const [token, setToken]     = useState(() => readStoredToken());
   const [loading, setLoading] = useState(true);
 
   // Rehydrate user from saved token on app load
   useEffect(() => {
     const init = async () => {
-      const savedToken = localStorage.getItem(TOKEN_KEY);
+      const savedToken = readStoredToken();
       if (savedToken) {
         try {
           const { data } = await authAPI.getMe();
           setUser(data.user);
-          localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+          persistSession(savedToken, data.user);
         } catch {
           clearSession();
           setToken(null);
@@ -74,7 +58,7 @@ export function AppProvider({ children }) {
 
   const updateUser = (updated) => {
     setUser(updated);
-    localStorage.setItem(USER_KEY, JSON.stringify(updated));
+    persistSession(token, updated);
   };
 
   // Provide both new shape AND old shape so all existing components work
