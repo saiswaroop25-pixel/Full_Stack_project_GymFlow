@@ -2,24 +2,47 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authAPI } from '../api';
 
 const AppContext = createContext(null);
+const TOKEN_KEY = 'gymflow_token';
+const USER_KEY = 'gymflow_user';
+
+const readStoredUser = () => {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    localStorage.removeItem(USER_KEY);
+    return null;
+  }
+};
+
+const persistSession = (token, user) => {
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+};
+
+const clearSession = () => {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+};
 
 export function AppProvider({ children }) {
-  const [user, setUser]       = useState(null);
-  const [token, setToken]     = useState(localStorage.getItem('gymflow_token'));
+  const [user, setUser]       = useState(() => readStoredUser());
+  const [token, setToken]     = useState(localStorage.getItem(TOKEN_KEY));
   const [loading, setLoading] = useState(true);
 
   // Rehydrate user from saved token on app load
   useEffect(() => {
     const init = async () => {
-      const savedToken = localStorage.getItem('gymflow_token');
+      const savedToken = localStorage.getItem(TOKEN_KEY);
       if (savedToken) {
         try {
           const { data } = await authAPI.getMe();
           setUser(data.user);
+          localStorage.setItem(USER_KEY, JSON.stringify(data.user));
         } catch {
-          localStorage.removeItem('gymflow_token');
-          localStorage.removeItem('gymflow_user');
+          clearSession();
           setToken(null);
+          setUser(null);
         }
       }
       setLoading(false);
@@ -29,7 +52,7 @@ export function AppProvider({ children }) {
 
   const login = async (email, password) => {
     const { data } = await authAPI.login({ email, password });
-    localStorage.setItem('gymflow_token', data.token);
+    persistSession(data.token, data.user);
     setToken(data.token);
     setUser(data.user);
     return data.user;
@@ -37,20 +60,22 @@ export function AppProvider({ children }) {
 
   const register = async (formData) => {
     const { data } = await authAPI.register(formData);
-    localStorage.setItem('gymflow_token', data.token);
+    persistSession(data.token, data.user);
     setToken(data.token);
     setUser(data.user);
     return data.user;
   };
 
   const logout = () => {
-    localStorage.removeItem('gymflow_token');
-    localStorage.removeItem('gymflow_user');
+    clearSession();
     setToken(null);
     setUser(null);
   };
 
-  const updateUser = (updated) => setUser(updated);
+  const updateUser = (updated) => {
+    setUser(updated);
+    localStorage.setItem(USER_KEY, JSON.stringify(updated));
+  };
 
   // Provide both new shape AND old shape so all existing components work
   const value = {
