@@ -1,12 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import { useApp } from '../context/AppContext';
 
 export default function UserLayout() {
-  const { user } = useApp();
-  const navigate  = useNavigate();
-  const [isAdmin, setIsAdmin]   = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('gymflow_theme') !== 'light';
   });
@@ -43,16 +39,9 @@ export default function UserLayout() {
     }
   }, [darkMode]);
 
-  const handleToggleRole = (admin) => {
-    setIsAdmin(admin);
-    navigate(admin ? '/admin/dashboard' : '/app/dashboard');
-  };
-
   return (
     <div className="app-layout">
       <Sidebar
-        isAdmin={isAdmin}
-        onToggleRole={handleToggleRole}
         darkMode={darkMode}
         onToggleDark={() => setDarkMode(d => !d)}
       />
