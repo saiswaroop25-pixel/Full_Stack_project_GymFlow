@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { activityAPI, crowdAPI, dietAPI, workoutAPI } from '../../api';
 import { io } from 'socket.io-client';
 import { SOCKET_URL } from '../../config';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -23,6 +24,7 @@ export default function UserDashboard() {
   const navigate  = useNavigate();
   const [time, setTime] = useState(new Date());
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   // Real data state
   const [crowd, setCrowd]       = useState({ crowdPct: 0, crowdLevel: 'LOW', checkedIn: 0 });
@@ -35,14 +37,20 @@ export default function UserDashboard() {
   const [hourlySlots, setHourlySlots] = useState([]);
 
   useEffect(() => {
+    const tick = setInterval(() => setTime(new Date()), 60000);
     const socket = io(SOCKET_URL, { transports: ['websocket'] });
     socket.on('crowd:update', (data) => {
-    setCrowd(data);
+      setCrowd(data);
     });
-    return () => socket.disconnect();
+    return () => {
+      clearInterval(tick);
+      socket.disconnect();
+    };
   }, []);
 
   useEffect(() => {
+    let alive = true;
+
     const load = async () => {
       try {
         const today = new Date().toISOString().split('T')[0];
@@ -58,11 +66,13 @@ export default function UserDashboard() {
             crowdAPI.getHourly(),
           ]);
 
-        if (crowdRes.status === 'fulfilled')       setCrowd(crowdRes.value.data.data || crowd);
-        if (mealsRes.status === 'fulfilled')       setTodayDiet(mealsRes.value.data.totals || todayDiet);
-        if (goalsRes.status === 'fulfilled')       setDietGoals(goalsRes.value.data.data || dietGoals);
-        if (attRes.status === 'fulfilled')         setAttendance(attRes.value.data.data || attendance);
-        if (statsRes.status === 'fulfilled')       setActStats(statsRes.value.data.data || actStats);
+        if (!alive) return;
+
+        if (crowdRes.status === 'fulfilled')       setCrowd(crowdRes.value.data.data || { crowdPct: 0, crowdLevel: 'LOW', checkedIn: 0 });
+        if (mealsRes.status === 'fulfilled')       setTodayDiet(mealsRes.value.data.totals || { calories: 0, protein: 0 });
+        if (goalsRes.status === 'fulfilled')       setDietGoals(goalsRes.value.data.data || { calories: 2500 });
+        if (attRes.status === 'fulfilled')         setAttendance(attRes.value.data.data || { streak: 0, visitsThisMonth: 0 });
+        if (statsRes.status === 'fulfilled')       setActStats(statsRes.value.data.data || { steps: 0, stepsGoal: 10000 });
         if (workoutsRes.status === 'fulfilled')    setRecentWorkouts(workoutsRes.value.data.data || []);
         if (dietSummaryRes.status === 'fulfilled') {
           const summary = dietSummaryRes.value.data.data?.dailySummary || [];
@@ -77,14 +87,32 @@ export default function UserDashboard() {
             color: h.crowd < 40 ? 'var(--accent-lime)' : h.crowd < 70 ? '#ffd166' : '#ff3b3b',
           })));
         }
+        if (
+          crowdRes.status === 'rejected' &&
+          mealsRes.status === 'rejected' &&
+          goalsRes.status === 'rejected' &&
+          attRes.status === 'rejected' &&
+          statsRes.status === 'rejected' &&
+          workoutsRes.status === 'rejected' &&
+          dietSummaryRes.status === 'rejected' &&
+          slotsRes.status === 'rejected'
+        ) {
+          setError('We could not load your dashboard right now. Please try again in a moment.');
+        }
       } catch (err) {
         console.error('Dashboard load error:', err);
+        if (alive) {
+          setError('We could not load your dashboard right now. Please try again in a moment.');
+        }
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     };
     load();
 
+    return () => {
+      alive = false;
+    };
   }, []);
 
   if (loading) return <DashboardSkeleton />;
@@ -95,6 +123,11 @@ export default function UserDashboard() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'fadeUp 0.5s ease' }}>
+      {error && (
+        <div style={{ padding: '12px 16px', background: 'rgba(255,59,59,0.1)', border: '1px solid rgba(255,59,59,0.25)', borderRadius: 8, color: '#ff6b6b', fontSize: 14 }}>
+          {error}
+        </div>
+      )}
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
