@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 
 // ── Verify JWT token ──────────────────────────────────────────────────────────
-const protect = (req, res, next) => {
+const protect = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -12,7 +12,27 @@ const protect = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // { id, email, role, plan }
+    const prisma = req.app?.get?.('prisma');
+
+    if (prisma) {
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+        select: { id: true, email: true, role: true, plan: true, isActive: true },
+      });
+
+      if (!user || !user.isActive) {
+        return res.status(401).json({ success: false, message: 'Account is no longer active.' });
+      }
+
+      req.user = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        plan: user.plan,
+      };
+    } else {
+      req.user = decoded; // { id, email, role, plan }
+    }
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
@@ -24,7 +44,7 @@ const protect = (req, res, next) => {
 
 // ── Admin only ────────────────────────────────────────────────────────────────
 const adminOnly = (req, res, next) => {
-  if (req.user.role !== 'ADMIN') {
+  if (!req.user || req.user.role !== 'ADMIN') {
     return res.status(403).json({ success: false, message: 'Access denied. Admin privileges required.' });
   }
   next();

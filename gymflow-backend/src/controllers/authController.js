@@ -20,14 +20,15 @@ const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
 const parseOptionalFloat = (value) => {
   if (value === '' || value === null) return null;
   if (value === undefined) return undefined;
-  return parseFloat(value);
+  const parsed = parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : NaN;
 };
 
 // ── POST /api/auth/register ───────────────────────────────────────────────────
 exports.register = async (req, res, next) => {
   try {
     const prisma = req.app.get('prisma');
-    const { name, email, password, goal, height, weight, plan } = req.body;
+    const { name, email, password, goal, height, weight } = req.body;
 
     // Check duplicate email
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -43,7 +44,7 @@ exports.register = async (req, res, next) => {
         email,
         password: hashedPassword,
         goal:   goal   || 'GENERAL_FITNESS',
-        plan:   plan   || 'BASIC',
+        plan:   'BASIC',
         height: height ? parseFloat(height) : null,
         weight: weight ? parseFloat(weight) : null,
       },
@@ -130,15 +131,27 @@ exports.updateProfile = async (req, res, next) => {
     if (hasOwn(req.body, 'goal')) data.goal = goal;
 
     const parsedHeight = parseOptionalFloat(height);
+    if (Number.isNaN(parsedHeight)) {
+      return res.status(400).json({ success: false, message: 'Height must be a valid number.' });
+    }
     if (parsedHeight !== undefined) data.height = parsedHeight;
 
     const parsedWeight = parseOptionalFloat(weight);
+    if (Number.isNaN(parsedWeight)) {
+      return res.status(400).json({ success: false, message: 'Weight must be a valid number.' });
+    }
     if (parsedWeight !== undefined) data.weight = parsedWeight;
 
     const parsedTargetWeight = parseOptionalFloat(targetWeight);
+    if (Number.isNaN(parsedTargetWeight)) {
+      return res.status(400).json({ success: false, message: 'Target weight must be a valid number.' });
+    }
     if (parsedTargetWeight !== undefined) data.targetWeight = parsedTargetWeight;
 
     const parsedBodyFat = parseOptionalFloat(bodyFat);
+    if (Number.isNaN(parsedBodyFat)) {
+      return res.status(400).json({ success: false, message: 'Body fat must be a valid number.' });
+    }
     if (parsedBodyFat !== undefined) data.bodyFat = parsedBodyFat;
 
     if (hasOwn(req.body, 'phone')) data.phone = phone || null;
