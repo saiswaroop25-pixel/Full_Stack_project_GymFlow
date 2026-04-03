@@ -25,6 +25,12 @@ const app    = express();
 const server = http.createServer(app);
 const prisma = new PrismaClient();
 
+['DATABASE_URL', 'JWT_SECRET'].forEach((key) => {
+  if (!process.env[key]) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+});
+
 // ── Socket.IO ────────────────────────────────────────────────────────────────
 const io = new Server(server, {
   cors: {
@@ -100,7 +106,10 @@ server.listen(PORT, () => {
 });
 
 // Graceful shutdown
-process.on('SIGTERM', async () => {
+const shutdown = async () => {
   await prisma.$disconnect();
   process.exit(0);
-});
+};
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
