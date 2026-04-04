@@ -42,9 +42,15 @@ exports.getSlots = async (req, res, next) => {
 exports.getMyBookings = async (req, res, next) => {
   try {
     const prisma = req.app.get('prisma');
+    const today = normalizeSlotDate(new Date());
+
     const bookings = await prisma.slotBooking.findMany({
-      where: { userId: req.user.id, date: { gte: new Date() } },
-      orderBy: { date: 'asc' },
+      where: {
+        userId: req.user.id,
+        status: 'BOOKED',
+        date: { gte: today },
+      },
+      orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
     });
 
     res.json({ success: true, data: bookings });
