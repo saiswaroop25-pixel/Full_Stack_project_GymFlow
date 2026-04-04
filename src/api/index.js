@@ -6,3 +6,4 @@ export { crowdAPI } from './crowd';
 export { slotAPI } from './slots';
 export { activityAPI } from './activity';
 export { adminAPI } from './admin';
+export { subscriptionAPI } from './subscription';
