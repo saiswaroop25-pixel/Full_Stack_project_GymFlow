@@ -14,6 +14,7 @@ const userNav = [
   { to: '/app/goals', icon: 'OO', label: 'Goals' },
   { to: '/app/slots', icon: '##', label: 'Slot Booking' },
   { to: '/app/notifications', icon: '<>', label: 'Notifications' },
+  { to: '/app/pass', icon: '||', label: 'Check-In Pass' },
   { to: '/app/profile', icon: '()' , label: 'Profile' },
 ];
 

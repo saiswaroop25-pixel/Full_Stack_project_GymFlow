@@ -2,13 +2,14 @@ import React from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Wifi, Dumbbell, CreditCard,
-  Megaphone, BarChart3, Brain, Zap, ArrowLeft, Shield
+  Megaphone, BarChart3, Brain, Zap, ArrowLeft, Shield, ScanLine
 } from 'lucide-react';
 
 const adminNav = [
   { icon: LayoutDashboard, label: 'Dashboard',          path: '/admin/dashboard' },
   { icon: Wifi,            label: 'Live Occupancy',     path: '/admin/occupancy', live: true },
   { icon: Users,           label: 'Manage Members',     path: '/admin/members' },
+  { icon: ScanLine,        label: 'Check-In Scanner',   path: '/admin/check-in' },
   { icon: Dumbbell,        label: 'Equipment',          path: '/admin/equipment' },
   { icon: CreditCard,      label: 'Subscriptions',      path: '/admin/subscriptions' },
   { icon: Megaphone,       label: 'Announcements',      path: '/admin/announcements' },

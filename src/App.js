@@ -18,6 +18,7 @@ import GoalManagementPage   from './pages/user/GoalManagementPage';
 import SlotBookingPage      from './pages/user/SlotBookingPage';
 import NotificationsPage    from './pages/user/NotificationsPage';
 import ProfilePage          from './pages/user/ProfilePage';
+import CheckInPassPage      from './pages/user/CheckInPassPage';
 
 import AdminLayout            from './components/AdminLayout';
 import AdminDashboard         from './pages/admin/AdminDashboard';
@@ -28,6 +29,8 @@ import SubscriptionManagement from './pages/admin/SubscriptionManagement';
 import AnnouncementPage       from './pages/admin/AnnouncementPage';
 import AnalyticsReports       from './pages/admin/AnalyticsReports';
 import AIInsightsPage         from './pages/admin/AIInsightsPage';
+import MemberDetailPage       from './pages/admin/MemberDetailPage';
+import CheckInScannerPage     from './pages/admin/CheckInScannerPage';
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { user } = useApp();
@@ -57,6 +60,7 @@ function AppRoutes() {
           <Route path="slots"         element={<SlotBookingPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="profile"       element={<ProfilePage />} />
+          <Route path="pass"          element={<CheckInPassPage />} />
         </Route>
 
         <Route path="/admin" element={<ProtectedRoute adminOnly><AdminLayout /></ProtectedRoute>}>
@@ -64,7 +68,9 @@ function AppRoutes() {
           <Route path="dashboard"     element={<AdminDashboard />} />
           <Route path="occupancy"     element={<LiveOccupancyControl />} />
           <Route path="members"       element={<ManageMembers />} />
+          <Route path="members/:id"   element={<MemberDetailPage />} />
           <Route path="equipment"     element={<EquipmentPage />} />
+          <Route path="check-in"      element={<CheckInScannerPage />} />
           <Route path="subscriptions" element={<SubscriptionManagement />} />
           <Route path="announcements" element={<AnnouncementPage />} />
           <Route path="reports"       element={<AnalyticsReports />} />
