@@ -19,6 +19,7 @@ const slotRoutes         = require('./routes/slots');
 const activityRoutes     = require('./routes/activity');
 const crowdRoutes        = require('./routes/crowd');
 const adminRoutes        = require('./routes/admin');
+const subscriptionRoutes = require('./routes/subscription');
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 const app    = express();
@@ -79,6 +80,7 @@ app.use('/api/slots',    slotRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/crowd',    crowdRoutes);
 app.use('/api/admin',    adminRoutes);
+app.use('/api/subscription', subscriptionRoutes);
 
 // ── 404 ───────────────────────────────────────────────────────────────────────
 app.use((req, res) => {
