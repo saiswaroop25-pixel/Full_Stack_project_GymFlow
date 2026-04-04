@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt    = require('jsonwebtoken');
+const crypto = require('crypto');
 
 // ── Helper: sign JWT ──────────────────────────────────────────────────────────
 const signToken = (user) =>
@@ -183,6 +184,36 @@ exports.changePassword = async (req, res, next) => {
     await prisma.user.update({ where: { id: req.user.id }, data: { password: hashed } });
 
     res.json({ success: true, message: 'Password changed successfully.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getCheckInPass = async (req, res, next) => {
+  try {
+    const prisma = req.app.get('prisma');
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { id: true, name: true, email: true, plan: true },
+    });
+
+    const issuedAt = new Date().toISOString().split('T')[0];
+    const signature = crypto
+      .createHmac('sha256', process.env.JWT_SECRET)
+      .update(`${user.id}:${issuedAt}`)
+      .digest('hex')
+      .slice(0, 16);
+
+    const token = Buffer.from(`${user.id}:${issuedAt}:${signature}`).toString('base64url');
+
+    res.json({
+      success: true,
+      data: {
+        token,
+        issuedAt,
+        member: user,
+      },
+    });
   } catch (err) {
     next(err);
   }

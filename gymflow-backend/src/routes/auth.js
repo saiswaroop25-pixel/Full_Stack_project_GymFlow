@@ -31,6 +31,7 @@ router.post('/login',
 
 // GET  /api/auth/me
 router.get('/me', protect, ctrl.getMe);
+router.get('/me/pass', protect, ctrl.getCheckInPass);
 
 // PATCH /api/auth/profile
 router.patch('/profile',
