@@ -339,9 +339,11 @@ exports.createAnnouncement = async (req, res, next) => {
 
     if (io) {
       io.emit('announcement', {
+        id: announcement.id,
         title,
         message,
         type: type || 'update',
+        audience: audience || 'All Members',
         timestamp: new Date(),
       });
     }

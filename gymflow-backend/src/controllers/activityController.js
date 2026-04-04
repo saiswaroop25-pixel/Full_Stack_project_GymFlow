@@ -97,6 +97,88 @@ exports.getStats = async (req, res, next) => {
   }
 };
 
+exports.getNotifications = async (req, res, next) => {
+  try {
+    const prisma = req.app.get('prisma');
+    const today = startOfDay(new Date());
+    const allowedAudiences = getAllowedAudiences(req.user.plan);
+
+    const [announcements, bookings, workouts, latestCrowd] = await Promise.all([
+      prisma.announcement.findMany({
+        where: { audience: { in: allowedAudiences } },
+        orderBy: { createdAt: 'desc' },
+        take: 12,
+      }),
+      prisma.slotBooking.findMany({
+        where: {
+          userId: req.user.id,
+          status: 'BOOKED',
+          date: { gte: today },
+        },
+        orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+        take: 5,
+      }),
+      prisma.workoutLog.findMany({
+        where: { userId: req.user.id },
+        orderBy: { date: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          name: true,
+          date: true,
+          duration: true,
+          calories: true,
+          volume: true,
+        },
+      }),
+      prisma.gymStats.findFirst({ orderBy: { timestamp: 'desc' } }),
+    ]);
+
+    const notifications = [
+      ...announcements.map((announcement) => ({
+        id: `announcement:${announcement.id}`,
+        type: announcement.type || 'update',
+        title: announcement.title,
+        body: announcement.message,
+        createdAt: announcement.createdAt,
+      })),
+      ...bookings.map((booking) => ({
+        id: `slot:${booking.id}`,
+        type: 'slot',
+        title: 'Upcoming booking confirmed',
+        body: `Your ${formatDate(booking.date)} slot at ${booking.startTime}-${booking.endTime} is reserved.`,
+        createdAt: booking.createdAt,
+      })),
+      ...workouts.map((workout) => ({
+        id: `workout:${workout.id}`,
+        type: 'workout',
+        title: `${workout.name} logged`,
+        body: buildWorkoutMessage(workout),
+        createdAt: workout.date,
+      })),
+    ];
+
+    if (latestCrowd) {
+      notifications.push({
+        id: `crowd:${latestCrowd.id}`,
+        type: latestCrowd.crowdPct >= 75 ? 'alert' : 'crowd',
+        title: latestCrowd.crowdPct >= 75 ? 'Peak-hour crowd alert' : 'Current gym crowd update',
+        body:
+          latestCrowd.crowdPct >= 75
+            ? `The gym is currently at ${latestCrowd.crowdPct}% capacity. A later slot may feel less crowded.`
+            : `The latest snapshot shows the gym at ${latestCrowd.crowdPct}% capacity.`,
+        createdAt: latestCrowd.timestamp,
+      });
+    }
+
+    notifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    res.json({ success: true, data: notifications.slice(0, 20) });
+  } catch (err) {
+    next(err);
+  }
+};
+
 function calcStreak(logs) {
   if (!logs.length) return 0;
 
@@ -135,4 +217,43 @@ function getStepsGoal(goal) {
   };
 
   return goals[goal] || 10000;
+}
+
+function getAllowedAudiences(plan) {
+  const allowedByPlan = {
+    BASIC: ['All Members', 'Basic Members'],
+    PREMIUM: ['All Members', 'Premium Members'],
+    STUDENT: ['All Members', 'Student Members'],
+    ANNUAL: ['All Members', 'Annual Members'],
+  };
+
+  return allowedByPlan[plan] || ['All Members'];
+}
+
+function buildWorkoutMessage(workout) {
+  const bits = [`${workout.duration} min session`];
+
+  if (workout.calories) {
+    bits.push(`${workout.calories} kcal burned`);
+  }
+
+  if (workout.volume) {
+    bits.push(`${Math.round(workout.volume).toLocaleString('en-IN')} kg volume`);
+  }
+
+  return bits.join(' · ');
+}
+
+function formatDate(date) {
+  return new Date(date).toLocaleDateString('en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
+function startOfDay(date) {
+  const value = new Date(date);
+  value.setHours(0, 0, 0, 0);
+  return value;
 }
