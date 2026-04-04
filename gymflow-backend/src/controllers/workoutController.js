@@ -1,3 +1,9 @@
+const {
+  deleteTemplate: removeStoredTemplate,
+  getTemplates: getStoredTemplates,
+  saveTemplate,
+} = require('../services/featureStore');
+
 const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
 
 exports.getLogs = async (req, res, next) => {
@@ -242,6 +248,98 @@ exports.getAnalytics = async (req, res, next) => {
         muscleDistribution,
         volumeByWeek: Object.entries(volumeByWeek).map(([week, volume]) => ({ week, volume })),
         strengthProgress,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getTemplates = async (req, res, next) => {
+  try {
+    res.json({ success: true, data: getStoredTemplates(req.user.id) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.createTemplate = async (req, res, next) => {
+  try {
+    const template = saveTemplate(req.user.id, req.body);
+    res.status(201).json({ success: true, message: 'Template saved.', data: template });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.deleteTemplate = async (req, res, next) => {
+  try {
+    const deleted = removeStoredTemplate(req.user.id, req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Template not found.' });
+    }
+
+    res.json({ success: true, message: 'Template deleted.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.useTemplate = async (req, res, next) => {
+  try {
+    const template = getStoredTemplates(req.user.id).find((item) => item.id === req.params.id);
+    if (!template) {
+      return res.status(404).json({ success: false, message: 'Template not found.' });
+    }
+
+    res.json({ success: true, data: template });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getExerciseHistory = async (req, res, next) => {
+  try {
+    const prisma = req.app.get('prisma');
+    const { name } = req.query;
+
+    if (!name) {
+      return res.status(400).json({ success: false, message: 'Exercise name is required.' });
+    }
+
+    const sets = await prisma.exerciseSet.findMany({
+      where: {
+        workoutLog: { userId: req.user.id },
+        name: { equals: name, mode: 'insensitive' },
+      },
+      include: {
+        workoutLog: {
+          select: {
+            id: true,
+            name: true,
+            date: true,
+          },
+        },
+      },
+      orderBy: { workoutLog: { date: 'desc' } },
+      take: 20,
+    });
+
+    const bestSet = sets.reduce((best, set) => (!best || set.weight > best.weight ? set : best), null);
+
+    res.json({
+      success: true,
+      data: {
+        name,
+        bestSet,
+        history: sets.map((set) => ({
+          id: set.id,
+          date: set.workoutLog.date,
+          workout: set.workoutLog.name,
+          reps: set.reps,
+          weight: set.weight,
+          setNumber: set.setNumber,
+        })),
       },
     });
   } catch (err) {
