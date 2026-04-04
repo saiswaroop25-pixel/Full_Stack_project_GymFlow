@@ -1,3 +1,12 @@
+const {
+  deleteSavedMeal: removeStoredMeal,
+  getMealPlan: getStoredMealPlan,
+  getSavedMeals: getStoredSavedMeals,
+  saveMeal,
+  saveMealPlan: saveStoredMealPlan,
+  searchFoods: searchStoredFoods,
+} = require('../services/featureStore');
+
 const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
 
 exports.getMeals = async (req, res, next) => {
@@ -183,6 +192,80 @@ exports.getMacroGoals = async (req, res, next) => {
     const goals = calculateMacroGoals(weight, user.goal);
 
     res.json({ success: true, data: goals });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.searchFoods = async (req, res, next) => {
+  try {
+    res.json({ success: true, data: searchStoredFoods(req.query.q || '') });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getSavedMeals = async (req, res, next) => {
+  try {
+    res.json({ success: true, data: getStoredSavedMeals(req.user.id) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.createSavedMeal = async (req, res, next) => {
+  try {
+    const meal = saveMeal(req.user.id, req.body);
+    res.status(201).json({ success: true, message: 'Saved meal added.', data: meal });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.deleteSavedMeal = async (req, res, next) => {
+  try {
+    const deleted = removeStoredMeal(req.user.id, req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Saved meal not found.' });
+    }
+
+    res.json({ success: true, message: 'Saved meal removed.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getMealPlan = async (req, res, next) => {
+  try {
+    const week = req.query.week || new Date().toISOString().split('T')[0];
+    let plan = getStoredMealPlan(req.user.id, week);
+
+    if (!plan) {
+      plan = saveStoredMealPlan(req.user.id, week, {
+        notes: 'Auto-generated starter plan based on your macro goals.',
+        days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => ({
+          day,
+          focus: day === 'Sat' ? 'High-carb training day' : day === 'Sun' ? 'Recovery and hydration' : 'Balanced training day',
+          meals: [
+            { name: 'Breakfast', suggestion: 'Oats + Greek yogurt + banana' },
+            { name: 'Lunch', suggestion: 'Chicken breast + rice + vegetables' },
+            { name: 'Dinner', suggestion: 'Paneer or eggs + roti + salad' },
+          ],
+        })),
+      });
+    }
+
+    res.json({ success: true, data: plan });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.saveMealPlan = async (req, res, next) => {
+  try {
+    const week = req.body.week || new Date().toISOString().split('T')[0];
+    const plan = saveStoredMealPlan(req.user.id, week, req.body);
+    res.status(201).json({ success: true, message: 'Meal plan saved.', data: plan });
   } catch (err) {
     next(err);
   }
