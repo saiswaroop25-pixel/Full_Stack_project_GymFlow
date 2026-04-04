@@ -1,5 +1,7 @@
+const crypto = require('crypto');
+const { addNote, getNotes, getPayments: getStoredPayments, planPrice } = require('../services/featureStore');
+
 const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
-const PLAN_PRICES = { BASIC: 299, PREMIUM: 599, STUDENT: 199, ANNUAL: 4999 };
 const FORECAST_TEMPLATE = [
   { hour: '5PM', baseline: 68, confidence: 86 },
   { hour: '6PM', baseline: 82, confidence: 91 },
@@ -46,7 +48,7 @@ exports.getDashboard = async (req, res, next) => {
     ]);
 
     const monthlyRevenue = planCounts.reduce(
-      (sum, plan) => sum + (PLAN_PRICES[plan.plan] || 0) * plan._count.id,
+      (sum, plan) => sum + planPrice(plan.plan) * plan._count.id,
       0
     );
 
@@ -153,6 +155,7 @@ exports.getMember = async (req, res, next) => {
         workoutLogs: { orderBy: { date: 'desc' }, take: 5 },
         attendanceLogs: { orderBy: { checkIn: 'desc' }, take: 10 },
         slotBookings: { orderBy: { date: 'desc' }, take: 5 },
+        meals: { orderBy: { date: 'desc' }, take: 5 },
       },
     });
 
@@ -161,7 +164,109 @@ exports.getMember = async (req, res, next) => {
     }
 
     const { password, ...safe } = member;
-    res.json({ success: true, data: safe });
+    const notes = getNotes(member.id);
+    const recentPayment = getStoredPayments().find((payment) => payment.userId === member.id) || null;
+    const totalCalories = member.workoutLogs.reduce((sum, workout) => sum + (workout.calories || 0), 0);
+
+    res.json({
+      success: true,
+      data: {
+        ...safe,
+        crm: {
+          notes,
+          recentPayment,
+          totalCalories,
+          lastVisit: member.attendanceLogs[0]?.checkIn || null,
+          lastWorkout: member.workoutLogs[0]?.date || null,
+          upcomingBooking: member.slotBookings.find((booking) => booking.status === 'BOOKED') || null,
+        },
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getMemberTimeline = async (req, res, next) => {
+  try {
+    const prisma = req.app.get('prisma');
+    const member = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      include: {
+        attendanceLogs: { orderBy: { checkIn: 'desc' }, take: 8 },
+        workoutLogs: { orderBy: { date: 'desc' }, take: 8 },
+        slotBookings: { orderBy: { date: 'desc' }, take: 8 },
+        meals: { orderBy: { date: 'desc' }, take: 8 },
+      },
+    });
+
+    if (!member) {
+      return res.status(404).json({ success: false, message: 'Member not found.' });
+    }
+
+    const timeline = [
+      ...member.attendanceLogs.map((item) => ({
+        id: `attendance:${item.id}`,
+        type: 'attendance',
+        title: item.checkOut ? 'Gym session completed' : 'Checked in',
+        date: item.checkIn,
+        body: item.duration ? `${item.duration} minutes logged.` : 'Session still active or duration pending.',
+      })),
+      ...member.workoutLogs.map((item) => ({
+        id: `workout:${item.id}`,
+        type: 'workout',
+        title: item.name,
+        date: item.date,
+        body: `${item.duration} minutes${item.volume ? ` · ${Math.round(item.volume)} kg volume` : ''}`,
+      })),
+      ...member.slotBookings.map((item) => ({
+        id: `slot:${item.id}`,
+        type: 'booking',
+        title: `${item.startTime}-${item.endTime} slot`,
+        date: item.createdAt,
+        body: `${new Date(item.date).toLocaleDateString('en-IN')} · ${item.status}`,
+      })),
+      ...member.meals.map((item) => ({
+        id: `meal:${item.id}`,
+        type: 'meal',
+        title: item.name,
+        date: item.date,
+        body: `${item.calories} kcal · ${Math.round(item.protein)}g protein`,
+      })),
+      ...getNotes(member.id).map((item) => ({
+        id: `note:${item.id}`,
+        type: 'note',
+        title: 'Staff note',
+        date: item.createdAt,
+        body: item.body,
+        author: item.author,
+      })),
+    ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    res.json({ success: true, data: timeline.slice(0, 30) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.addMemberNote = async (req, res, next) => {
+  try {
+    const prisma = req.app.get('prisma');
+    const member = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, name: true },
+    });
+
+    if (!member) {
+      return res.status(404).json({ success: false, message: 'Member not found.' });
+    }
+
+    const note = addNote(member.id, {
+      body: req.body.body,
+      author: req.user.email,
+    });
+
+    res.status(201).json({ success: true, message: 'Note added.', data: note });
   } catch (err) {
     next(err);
   }
@@ -460,6 +565,82 @@ exports.getAIInsights = async (req, res, next) => {
           },
         ],
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getPayments = async (req, res, next) => {
+  try {
+    res.json({ success: true, data: getStoredPayments().slice(0, 50) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.scanCheckInPass = async (req, res, next) => {
+  try {
+    const prisma = req.app.get('prisma');
+    const { token, action = 'checkin' } = req.body;
+    const decoded = Buffer.from(token, 'base64url').toString('utf8');
+    const [userId, issuedAt, signature] = decoded.split(':');
+
+    const expected = crypto
+      .createHmac('sha256', process.env.JWT_SECRET)
+      .update(`${userId}:${issuedAt}`)
+      .digest('hex')
+      .slice(0, 16);
+
+    if (!userId || signature !== expected) {
+      return res.status(400).json({ success: false, message: 'Invalid pass token.' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Member not found.' });
+    }
+
+    const activeSession = await prisma.attendanceLog.findFirst({
+      where: { userId: user.id, checkOut: null },
+      orderBy: { checkIn: 'desc' },
+    });
+
+    if (action === 'checkout') {
+      if (!activeSession) {
+        return res.status(400).json({ success: false, message: 'Member is not currently checked in.' });
+      }
+
+      const checkoutTime = new Date();
+      const duration = Math.max(1, Math.round((checkoutTime - new Date(activeSession.checkIn)) / 60000));
+      const session = await prisma.attendanceLog.update({
+        where: { id: activeSession.id },
+        data: { checkOut: checkoutTime, duration },
+      });
+
+      return res.json({
+        success: true,
+        message: `${user.name} checked out successfully.`,
+        data: { action: 'checkout', member: user, session },
+      });
+    }
+
+    if (activeSession) {
+      return res.status(400).json({ success: false, message: 'Member is already checked in.' });
+    }
+
+    const session = await prisma.attendanceLog.create({
+      data: { userId: user.id, checkIn: new Date() },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `${user.name} checked in successfully.`,
+      data: { action: 'checkin', member: user, session },
     });
   } catch (err) {
     next(err);

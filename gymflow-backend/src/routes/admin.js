@@ -15,6 +15,13 @@ router.get('/dashboard', ctrl.getDashboard);
 
 router.get('/members', ctrl.getMembers);
 router.get('/members/:id', ctrl.getMember);
+router.get('/members/:id/timeline', ctrl.getMemberTimeline);
+router.post(
+  '/members/:id/notes',
+  [body('body').trim().notEmpty().withMessage('Note body is required.').isLength({ max: 500 }).withMessage('Note is too long.')],
+  validate,
+  ctrl.addMemberNote
+);
 router.patch(
   '/members/:id',
   [
@@ -41,6 +48,13 @@ router.patch(
 );
 
 router.get('/analytics', ctrl.getAnalytics);
+router.get('/payments', ctrl.getPayments);
+router.post(
+  '/checkin/scan',
+  [body('token').trim().notEmpty().withMessage('Pass token is required.'), body('action').optional().isIn(['checkin', 'checkout']).withMessage('Invalid scan action.')],
+  validate,
+  ctrl.scanCheckInPass
+);
 
 router.get('/announcements', ctrl.getAnnouncements);
 router.post(
