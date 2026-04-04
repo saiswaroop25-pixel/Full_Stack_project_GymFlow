@@ -7,6 +7,7 @@ const EXERCISES = ['Bench Press','Incline DB Press','Deadlift','Barbell Row','La
 
 export default function WorkoutLoggerPage() {
   const [logs, setLogs]       = useState([]);
+  const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -18,7 +19,7 @@ export default function WorkoutLoggerPage() {
     exercises: [{ name: '', muscleGroup: '', sets: [{ reps: '', weight: '' }] }],
   });
 
-  useEffect(() => { loadLogs(); }, []);
+  useEffect(() => { loadLogs(); loadTemplates(); }, []);
 
   const loadLogs = async () => {
     try {
@@ -28,6 +29,15 @@ export default function WorkoutLoggerPage() {
       setError('Failed to load workouts.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadTemplates = async () => {
+    try {
+      const { data } = await workoutAPI.getTemplates();
+      setTemplates(data.data || []);
+    } catch (_) {
+      setTemplates([]);
     }
   };
 
@@ -94,6 +104,44 @@ export default function WorkoutLoggerPage() {
     }
   };
 
+  const applyTemplate = async (id) => {
+    try {
+      const { data } = await workoutAPI.useTemplate(id);
+      const template = data.data;
+      setForm({
+        name: template.name || '',
+        duration: '',
+        calories: '',
+        notes: template.goal || '',
+        exercises: (template.exercises || []).map((exercise) => ({
+          ...exercise,
+          sets: (exercise.sets || []).map((set) => ({ reps: String(set.reps ?? ''), weight: String(set.weight ?? '') })),
+        })),
+      });
+      setShowForm(true);
+    } catch {
+      setError('Failed to load template.');
+    }
+  };
+
+  const saveCurrentTemplate = async () => {
+    if (!form.name || form.exercises.length === 0) return;
+    try {
+      await workoutAPI.createTemplate({
+        name: form.name,
+        goal: form.notes,
+        exercises: form.exercises.map((exercise) => ({
+          ...exercise,
+          sets: exercise.sets.map((set) => ({ reps: parseInt(set.reps || 0, 10), weight: parseFloat(set.weight || 0) })),
+        })),
+      });
+      setSuccess('Template saved.');
+      loadTemplates();
+    } catch {
+      setError('Failed to save template.');
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Header */}
@@ -110,6 +158,19 @@ export default function WorkoutLoggerPage() {
       {/* Alerts */}
       {error   && <div style={{ padding: '12px 16px', background: 'rgba(255,59,59,0.1)', border: '1px solid rgba(255,59,59,0.3)', borderRadius: 8, color: '#ff3b3b', fontSize: 14 }}>{error}</div>}
       {success && <div style={{ padding: '12px 16px', background: 'rgba(0,255,135,0.1)', border: '1px solid rgba(0,255,135,0.3)', borderRadius: 8, color: '#00ff87', fontSize: 14 }}>{success}</div>}
+
+      {templates.length > 0 && (
+        <div className="card" style={{ padding: 20 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, marginBottom: 12 }}>QUICK TEMPLATES</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            {templates.map((template) => (
+              <button key={template.id} className="btn btn-secondary btn-sm" type="button" onClick={() => applyTemplate(template.id)}>
+                {template.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Log Form */}
       {showForm && (
@@ -179,6 +240,9 @@ export default function WorkoutLoggerPage() {
 
             <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-start' }} disabled={saving}>
               {saving ? <><Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Saving...</> : <><Save size={16} /> Save Workout</>}
+            </button>
+            <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start' }} onClick={saveCurrentTemplate}>
+              Save As Template
             </button>
           </form>
         </div>

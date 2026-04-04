@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { authAPI } from '../../api';
+import { authAPI, subscriptionAPI } from '../../api';
 import { User, Save, Loader, AlertCircle, CheckCircle } from 'lucide-react';
 
 const GOALS = [
@@ -15,6 +15,8 @@ const PLAN_COLORS = { BASIC: '#9090b0', PREMIUM: '#00ff87', STUDENT: '#ffd166', 
 
 export default function ProfilePage() {
   const { user, updateUser } = useApp();
+  const [subscription, setSubscription] = useState(null);
+  const [plans, setPlans] = useState([]);
 
   const [form, setForm] = useState({
     name:         user?.name         || '',
@@ -28,8 +30,25 @@ export default function ProfilePage() {
   const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirm: '' });
   const [saving, setSaving]   = useState(false);
   const [savingPw, setSavingPw] = useState(false);
+  const [subscriptionBusy, setSubscriptionBusy] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError]     = useState('');
+
+  useEffect(() => {
+    const loadSubscription = async () => {
+      try {
+        const [{ data: subRes }, { data: plansRes }] = await Promise.all([
+          subscriptionAPI.getMySubscription(),
+          subscriptionAPI.getPlans(),
+        ]);
+        setSubscription(subRes.data);
+        setPlans(plansRes.data.plans || []);
+      } catch (_) {
+        // keep profile page usable even if subscription panel fails
+      }
+    };
+    loadSubscription();
+  }, []);
 
   const handleChange = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
@@ -70,6 +89,35 @@ export default function ProfilePage() {
   const planColor = PLAN_COLORS[user?.plan] || '#9090b0';
   const initials  = user?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
 
+  const changePlan = async (plan) => {
+    setSubscriptionBusy(true);
+    setError('');
+    try {
+      const { data } = await subscriptionAPI.checkout({ plan });
+      setSubscription((current) => ({ ...(current || {}), subscription: data.data.subscription, payments: [data.data.payment, ...((current?.payments) || [])] }));
+      updateUser({ ...user, plan: data.data.user.plan });
+      setSuccess(`${plan} plan activated.`);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to change plan.');
+    } finally {
+      setSubscriptionBusy(false);
+    }
+  };
+
+  const cancelPlan = async () => {
+    setSubscriptionBusy(true);
+    setError('');
+    try {
+      const { data } = await subscriptionAPI.cancel();
+      setSubscription((current) => ({ ...(current || {}), subscription: data.data }));
+      setSuccess(data.message);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to schedule cancellation.');
+    } finally {
+      setSubscriptionBusy(false);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 700 }}>
       <div>
@@ -102,6 +150,25 @@ export default function ProfilePage() {
       </div>
 
       {/* Profile form */}
+      <div className="card" style={{ padding: 24 }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, marginBottom: 16 }}>SUBSCRIPTION</div>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14 }}>
+          Current status: <span style={{ color: planColor, fontWeight: 700 }}>{subscription?.subscription?.plan || user?.plan}</span>
+          {subscription?.subscription?.cancelAtPeriodEnd ? ' · Cancels at period end' : ''}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+          {plans.map((plan) => (
+            <button key={plan.code} type="button" className="btn btn-secondary" disabled={subscriptionBusy || user?.plan === plan.code} onClick={() => changePlan(plan.code)} style={{ justifyContent: 'space-between' }}>
+              <span>{plan.code}</span>
+              <span>Rs {plan.price}</span>
+            </button>
+          ))}
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={cancelPlan} disabled={subscriptionBusy}>Schedule Cancellation</button>
+        </div>
+      </div>
+
       <div className="card" style={{ padding: 28 }}>
         <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, marginBottom: 20 }}>PERSONAL INFO</div>
         <form onSubmit={handleProfileSave} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

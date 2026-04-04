@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { adminAPI } from '../../api';
 import { exportToCSV, flattenMember } from '../../utils/csvExport';
 import { Search, Users, Loader, ChevronLeft, ChevronRight, Download } from 'lucide-react';
@@ -6,6 +7,7 @@ import { Search, Users, Loader, ChevronLeft, ChevronRight, Download } from 'luci
 const PLAN_COLORS = { BASIC: '#9090b0', PREMIUM: '#00ff87', STUDENT: '#ffd166', ANNUAL: '#00d4ff' };
 
 export default function ManageMembers() {
+  const navigate = useNavigate();
   const [members, setMembers]   = useState([]);
   const [total, setTotal]       = useState(0);
   const [loading, setLoading]   = useState(true);
@@ -111,6 +113,9 @@ export default function ManageMembers() {
                       </select>
                       <button onClick={() => updateMember(m.id, { isActive: !m.isActive })} disabled={updating === m.id} className={`btn btn-sm ${m.isActive ? 'btn-danger' : 'btn-secondary'}`}>
                         {updating === m.id ? <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} /> : m.isActive ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button onClick={() => navigate(`/admin/members/${m.id}`)} className="btn btn-secondary btn-sm">
+                        View
                       </button>
                     </div>
                   </td>

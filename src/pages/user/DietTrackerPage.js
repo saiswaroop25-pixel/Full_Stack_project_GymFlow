@@ -6,6 +6,10 @@ const MEAL_NAMES = ['Breakfast', 'Morning Snack', 'Lunch', 'Pre-Workout', 'Post-
 
 export default function DietTrackerPage() {
   const [meals, setMeals]       = useState([]);
+  const [foodResults, setFoodResults] = useState([]);
+  const [savedMeals, setSavedMeals] = useState([]);
+  const [mealPlan, setMealPlan] = useState(null);
+  const [foodQuery, setFoodQuery] = useState('');
   const [totals, setTotals]     = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 });
   const [goals, setGoals]       = useState({ calories: 2500, protein: 200, carbs: 280, fat: 70 });
   const [loading, setLoading]   = useState(true);
@@ -19,7 +23,7 @@ export default function DietTrackerPage() {
     items: [{ name: '', cal: '' }],
   });
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); loadExtras(); }, []);
 
   const loadData = async () => {
     try {
@@ -35,6 +39,20 @@ export default function DietTrackerPage() {
       setError('Failed to load meals.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadExtras = async () => {
+    try {
+      const week = new Date().toISOString().split('T')[0];
+      const [savedRes, planRes] = await Promise.all([
+        dietAPI.getSavedMeals(),
+        dietAPI.getMealPlan(week),
+      ]);
+      setSavedMeals(savedRes.data.data || []);
+      setMealPlan(planRes.data.data || null);
+    } catch (_) {
+      setSavedMeals([]);
     }
   };
 
@@ -72,6 +90,32 @@ export default function DietTrackerPage() {
     }
   };
 
+  const searchFood = async () => {
+    try {
+      const { data } = await dietAPI.searchFoods(foodQuery);
+      setFoodResults(data.data || []);
+    } catch {
+      setFoodResults([]);
+    }
+  };
+
+  const saveCurrentMeal = async () => {
+    try {
+      await dietAPI.createSavedMeal({
+        name: form.name,
+        calories: parseInt(form.calories || 0, 10),
+        protein: parseFloat(form.protein || 0),
+        carbs: parseFloat(form.carbs || 0),
+        fat: parseFloat(form.fat || 0),
+        items: form.items.filter((item) => item.name),
+      });
+      setSuccess('Saved meal added.');
+      loadExtras();
+    } catch {
+      setError('Failed to save meal template.');
+    }
+  };
+
   const macroBar = (val, goal, color) => (
     <div style={{ height: 8, background: 'var(--bg-elevated)', borderRadius: 4, overflow: 'hidden', marginTop: 6 }}>
       <div style={{ width: `${Math.min(100, (val / goal) * 100)}%`, height: '100%', background: color, borderRadius: 4, transition: 'width 0.6s ease' }} />
@@ -93,6 +137,41 @@ export default function DietTrackerPage() {
 
       {error   && <div style={{ padding: '12px 16px', background: 'rgba(255,59,59,0.1)', border: '1px solid rgba(255,59,59,0.3)', borderRadius: 8, color: '#ff3b3b', fontSize: 14 }}>{error}</div>}
       {success && <div style={{ padding: '12px 16px', background: 'rgba(0,255,135,0.1)', border: '1px solid rgba(0,255,135,0.3)', borderRadius: 8, color: '#00ff87', fontSize: 14 }}>{success}</div>}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 16 }}>
+        <div className="card" style={{ padding: 20 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, marginBottom: 12 }}>FOOD LIBRARY</div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <input value={foodQuery} onChange={(e) => setFoodQuery(e.target.value)} placeholder="Search foods..." />
+            <button className="btn btn-secondary" type="button" onClick={searchFood}>Search</button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {foodResults.map((food) => (
+              <div key={food.id} style={{ padding: 10, borderRadius: 8, background: 'var(--bg-elevated)' }}>
+                <div style={{ fontWeight: 700 }}>{food.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{food.calories} kcal · {food.protein}P · {food.carbs}C · {food.fat}F</div>
+              </div>
+            ))}
+            {foodResults.length === 0 && <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Search to see quick nutrition references.</div>}
+          </div>
+        </div>
+        <div className="card" style={{ padding: 20 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, marginBottom: 12 }}>MEAL PLAN</div>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>{mealPlan?.notes || 'Starter weekly plan loaded.'}</div>
+          {(mealPlan?.days || []).slice(0, 3).map((day) => (
+            <div key={day.day} style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 700 }}>{day.day}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{day.focus}</div>
+            </div>
+          ))}
+          {savedMeals.length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Saved Meals</div>
+              {savedMeals.slice(0, 3).map((meal) => <div key={meal.id} style={{ fontSize: 13, marginBottom: 4 }}>{meal.name} · {meal.calories} kcal</div>)}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Macro summary */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
@@ -158,6 +237,9 @@ export default function DietTrackerPage() {
 
             <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-start' }} disabled={saving}>
               {saving ? <><Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Saving...</> : <><Flame size={16} /> Log Meal</>}
+            </button>
+            <button type="button" className="btn btn-secondary" style={{ alignSelf: 'flex-start' }} onClick={saveCurrentMeal}>
+              Save As Meal Template
             </button>
           </form>
         </div>
